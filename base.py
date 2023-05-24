@@ -9,6 +9,8 @@ from typing import Dict, Any, Tuple, Optional, List
 from queue import Queue, Empty, Full
 from datetime import datetime
 
+import random
+
 import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete
@@ -120,7 +122,7 @@ class EnergyPlusRunner:
             # °C
             "outdoor_temp" : ("Site Outdoor Air Drybulb Temperature", "Environment"),
             # °C
-            "indoor_temp_liviing" : ("Zone Air Temperature", 'living_unit1'),
+            "indoor_temp_living" : ("Zone Air Temperature", 'living_unit1'),
             # °C
             "indoor_temp_attic": ("Zone Air Temperature", 'attic_unit1'),
 
@@ -140,6 +142,11 @@ class EnergyPlusRunner:
         self.meters = {
             # HVAC elec (J)
             "elec": "Electricity:HVAC",
+            # Heating
+            "heating_elec": "Heating:Electricity",
+            # Cooling
+            "cooling_elec": "Cooling:Electricity"
+
             # District heating (J)
             # "dh": "Heating:DistrictHeating"
         }
@@ -225,14 +232,14 @@ class EnergyPlusRunner:
         make command line arguments to pass to EnergyPlus
         """
         self.curr = datetime.now().strftime("%d/%m/%Y-%H:%M:%S")
-        # eplus_args = ["-r"] if self.env_config.get("csv", False) else []
-        eplus_args = ['-x']
+        eplus_args = ["-r"] if self.env_config.get("csv", False) else []
+        eplus_args += ['-x']
         eplus_args += [
             "-w",
             self.env_config["epw"],
             "-d",
             # change below for output directory name formatting
-            f"{self.env_config['output']}/episode-{self.episode:08}-{datetime.now()}",
+            f"{self.env_config['output']}/episode-{self.episode}-{datetime.now()}",
             # f"{self.env_config['output']}/episode-{self.episode:08}-{os.getpid():05}",
             self.env_config["idf"]
         ]
@@ -247,6 +254,9 @@ class EnergyPlusRunner:
         if self.simulation_complete or not self._init_callback(state_argument):
             # print('HIT COLLECT OBS')
             return
+
+        print("# OBS living",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living']))
+        print("# OBS attic",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_attic']))
 
         self.next_obs = {
             **{
@@ -275,11 +285,14 @@ class EnergyPlusRunner:
         next_action = self.act_queue.get()
         assert isinstance(next_action, float)
 
+        #print(next_action)
         self.x.set_actuator_value(
             state=state_argument,
             actuator_handle=self.actuator_handles["sat_spt"],
             actuator_value=next_action
         )
+        temp = self.x.get_actuator_value(state_argument,self.actuator_handles['sat_spt'])
+        #print('## ACTUATOR VAL:', temp)
 
     def _init_callback(self, state_argument) -> bool:
         """initialize EnergyPlus handles and checks if simulation runtime is ready"""
@@ -365,6 +378,7 @@ class EnergyPlusEnv(gym.Env):
         # observation space:
         # outdoor_temp, indoor_temp_living, indoor_temp_attic
         # NOTE: I am unsure about the actual bound -> set as larger than expected values
+        # TODO update this stuff
         low_obs = np.array(
             [-100.0, -100.0, -100.0]
         )
@@ -438,7 +452,12 @@ class EnergyPlusEnv(gym.Env):
         # )
         #print('ACTION VAL:', sat_spt_value)
         sat_spt_value = self._rescale(int(action)) # maybe need int(action)
-        sat_spt_value = 22.0
+        sat_spt_value = 1000.0
+
+        # set the system temperature actuator value to sat_spt_value
+
+        # api.exchange.set_actuator_value(state, outdoor_dew_point_actuator , 10000)
+        # self.
 
         # enqueue action (received by EnergyPlus through dedicated callback)
         # then wait to get next observation.
@@ -487,7 +506,10 @@ class EnergyPlusEnv(gym.Env):
 
         #oa_temp = api.exchange.get_variable_value(state, outdoor_temp_sensor)
 
-        reward = obs['elec']
+        #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
+        # reward = obs['elec']
+        reward = obs['heating_elec'] + obs['cooling_elec']
+        print('REWARD:', reward)
         # below is reward testing
         # reward = 10
         # print("#########################")
@@ -500,7 +522,6 @@ class EnergyPlusEnv(gym.Env):
             n: int
     ) -> float:
         return np.linspace(20,24,41)[n]
-
     # def _rescale(
     #     n: int,
     #     range1: Tuple[float, float],
@@ -510,15 +531,29 @@ class EnergyPlusEnv(gym.Env):
     #     delta2 = range2[1] - range2[0]
     #     return (delta2 * (n - range1[0]) / delta1) + range2[0]
 
+#####################################################
+#################          RL STUFF (DQN)     #######
+#####################################################
+
+
+#####################################################
+#################      RL STUFF (DQN) end     #######
+#####################################################
+
+
+
 # TODO: have to give in -x flag
 default_args = {'idf': '/home/ck/Downloads/Files/in.idf',
                 'epw': '/home/ck/Downloads/Files/weather.epw',
-                #'csv': False,
+                'csv': True,
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2
 }
 
+# SCORES:  [81884676878.09312, 81884676878.09312]
+#
+#SCORES:  [76613073663.50632, 76613073663.50632]
 if __name__ == "__main__":
     env = EnergyPlusEnv(default_args)
     print('action_space:', end='')
@@ -531,8 +566,9 @@ if __name__ == "__main__":
 
         while not done:
             #env.render()
-            action = env.action_space.sample()
-            ret = n_state, reward, done, info, STUFF = env.step(action)
+            # action = env.action_space.sample()
+            #action = 22.0
+            ret = n_state, reward, done, info, STUFF = env.step(0)
             #print('RET STUFF:', ret)
             score+=reward
             # print('DONE?:', done)
