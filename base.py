@@ -68,24 +68,24 @@ def parse_args() -> argparse.Namespace:
         default=2,
         help="The number of workers to use",
     )
-    # parser.add_argument(
-    #     "--alg",
-    #     default="PPO",
-    #     choices=["APEX", "DQN", "IMPALA", "PPO", "R2D2"],
-    #     help="The algorithm to use",
-    # )
-    # parser.add_argument(
-    #     "--framework",
-    #     choices=["tf", "tf2", "tfe", "torch"],
-    #     default="tf",
-    #     help="The deep learning framework specifier",
-    # )
-    # parser.add_argument(
-    #     "--use-lstm",
-    #     action="store_true",
-    #     help="Whether to auto-wrap the model with an LSTM. Only valid option for "
-    #          "--run=[IMPALA|PPO|R2D2]",
-    # )
+    parser.add_argument(
+        "--alg",
+        default="PPO",
+        choices=["APEX", "DQN", "IMPALA", "PPO", "R2D2"],
+        help="The algorithm to use",
+    )
+    parser.add_argument(
+        "--framework",
+        choices=["tf", "tf2", "tfe", "torch"],
+        default="tf",
+        help="The deep learning framework specifier",
+    )
+    parser.add_argument(
+        "--use-lstm",
+        action="store_true",
+        help="Whether to auto-wrap the model with an LSTM. Only valid option for "
+             "--run=[IMPALA|PPO|R2D2]",
+    )
     built_args = parser.parse_args()
     #print(f"Running with following CLI args: {built_args}")
     return built_args
@@ -157,19 +157,19 @@ class EnergyPlusRunner:
             "sat_spt": (
                 "System Node Setpoint",
                 "Temperature Setpoint",
-                "zone inlet node_unit1"
+                "zone node_unit1"
             ),
-            # "cooling_actuator_living" : (
-            #     "Zone Temperature Control",
-            #     "Heating Setpoint",
-            #     "living_unit1"
-            # ),
+            "cooling_actuator_living" : (
+                "Zone Temperature Control",
+                "Heating Setpoint",
+                "living_unit1"
+            ),
 
-            # "heating_actuator_living" : (
-            #     "Zone Temperature Control",
-            #     "Cooling Setpoint",
-            #     "living_unit1"
-            # )
+            "heating_actuator_living" : (
+                "Zone Temperature Control",
+                "Cooling Setpoint",
+                "living_unit1"
+            )
         }
         self.actuator_handles: Dict[str, int] = {}
 
@@ -179,11 +179,11 @@ class EnergyPlusRunner:
         if not self.request_variable_complete:
             for key, var in self.variables.items():
                 self.x.request_variable(self.energyplus_state, var[0], var[1])
-            self.request_variable_complete = True
-        # (below) old way to request var
-        # self.energyplus_api.exchange.request_variable(self.energyplus_state, "SITE OUTDOOR AIR DRYBULB TEMPERATURE", "ENVIRONMENT")
-        # self.energyplus_api.exchange.request_variable(self.energyplus_state, "ZONE AIR TEMPERATURE", "LIVING_UNIT1")
-        # self.energyplus_api.exchange.request_variable(self.energyplus_state, "ZONE AIR TEMPERATURE", "ATTIC_UNIT1")
+                self.request_variable_complete = True
+                # (below) old way to request var
+                # self.energyplus_api.exchange.request_variable(self.energyplus_state, "SITE OUTDOOR AIR DRYBULB TEMPERATURE", "ENVIRONMENT")
+                # self.energyplus_api.exchange.request_variable(self.energyplus_state, "ZONE AIR TEMPERATURE", "LIVING_UNIT1")
+                # self.energyplus_api.exchange.request_variable(self.energyplus_state, "ZONE AIR TEMPERATURE", "ATTIC_UNIT1")
 
         # register callback used to track simulation progress
         def report_progress(progress: int) -> None:
@@ -255,8 +255,8 @@ class EnergyPlusRunner:
             # print('HIT COLLECT OBS')
             return
 
-        print("# OBS living",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living']))
-        print("# OBS attic",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_attic']))
+        # print("# OBS living",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living']))
+        # print("# OBS attic",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_attic']))
 
         self.next_obs = {
             **{
@@ -283,15 +283,31 @@ class EnergyPlusRunner:
         if self.act_queue.empty():
             return
         next_action = self.act_queue.get()
-        assert isinstance(next_action, float)
+        assert isinstance(next_action[0], float)
+        assert isinstance(next_action[1], float)
 
         #print(next_action)
+        # self.x.set_actuator_value(
+        #     state=state_argument,
+        #     actuator_handle=self.actuator_handles["sat_spt"],
+        #     actuator_value=next_action
+        # )
         self.x.set_actuator_value(
             state=state_argument,
-            actuator_handle=self.actuator_handles["sat_spt"],
-            actuator_value=next_action
+            actuator_handle=self.actuator_handles['cooling_actuator_living'],
+            actuator_value=next_action[0]
         )
-        temp = self.x.get_actuator_value(state_argument,self.actuator_handles['sat_spt'])
+        self.x.set_actuator_value(
+            state=state_argument,
+            actuator_handle=self.actuator_handles['heating_actuator_living'],
+            actuator_value=next_action[1]
+        )
+        #SCORES:  [20538820133.84012, 20538820133.84012]
+        temp1 = self.x.get_actuator_value(state_argument,self.actuator_handles['cooling_actuator_living'])
+        temp2 = self.x.get_actuator_value(state_argument, self.actuator_handles['heating_actuator_living'])
+        indoor = self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living'])
+        print('##', temp1, temp2)
+        print('#####', indoor)
         #print('## ACTUATOR VAL:', temp)
 
     def _init_callback(self, state_argument) -> bool:
@@ -337,9 +353,9 @@ class EnergyPlusRunner:
             }
 
             for handles in [
-                self.var_handles,
-                self.meter_handles,
-                self.actuator_handles
+                    self.var_handles,
+                    self.meter_handles,
+                    self.actuator_handles
             ]:
                 if any([v == -1 for v in handles.values()]):
                     available_data = self.x.list_available_api_data_csv(state_argument).decode('utf-8')
@@ -393,16 +409,16 @@ class EnergyPlusEnv(gym.Env):
 
         # action space: supply air temperature (100 possible values)
         # 20 - 24 degrees
-        self.action_space: Discrete = Discrete(40)
+        self.action_space: Discrete = Discrete(820)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
     def reset(
-        self, *,
-        seed: Optional[int] = None,
-        options: Optional[Dict[str, Any]] = None
+            self, *,
+            seed: Optional[int] = None,
+            options: Optional[Dict[str, Any]] = None
     ):
         self.episode += 1
         self.last_obs = self.observation_space.sample()
@@ -452,7 +468,6 @@ class EnergyPlusEnv(gym.Env):
         # )
         #print('ACTION VAL:', sat_spt_value)
         sat_spt_value = self._rescale(int(action)) # maybe need int(action)
-        sat_spt_value = 1000.0
 
         # set the system temperature actuator value to sat_spt_value
 
@@ -521,15 +536,24 @@ class EnergyPlusEnv(gym.Env):
     def _rescale(
             n: int
     ) -> float:
-        return np.linspace(20,24,41)[n]
-    # def _rescale(
-    #     n: int,
-    #     range1: Tuple[float, float],
-    #     range2: Tuple[float, float]
-    # ) -> float:
-    #     delta1 = range1[1] - range1[0]
-    #     delta2 = range2[1] - range2[0]
-    #     return (delta2 * (n - range1[0]) / delta1) + range2[0]
+        tuples = []
+        for i in range(200,240):
+            first_num = i/ 10.0
+            for j in range (i + 1, 241):
+                second_num = j / 10.0
+                tuples.append(tuple([first_num, second_num]))
+
+        #print(len(tuples))
+        return tuples[n]
+
+        # def _rescale(
+        #     n: int,
+        #     range1: Tuple[float, float],
+        #     range2: Tuple[float, float]
+        # ) -> float:
+        #     delta1 = range1[1] - range1[0]
+        #     delta2 = range2[1] - range2[0]
+        #     return (delta2 * (n - range1[0]) / delta1) + range2[0]
 
 #####################################################
 #################          RL STUFF (DQN)     #######
@@ -549,7 +573,7 @@ default_args = {'idf': '/home/ck/Downloads/Files/in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2
-}
+                }
 
 # SCORES:  [81884676878.09312, 81884676878.09312]
 #
@@ -568,12 +592,12 @@ if __name__ == "__main__":
             #env.render()
             # action = env.action_space.sample()
             #action = 22.0
-            ret = n_state, reward, done, info, STUFF = env.step(0)
+            ret = n_state, reward, done, info, _ = env.step(env.action_space.sample())
             #print('RET STUFF:', ret)
             score+=reward
             # print('DONE?:', done)
             print('Episode:{} Reward:{} Score:{}'.format(episode, reward, score))
 
         scores.append(score)
-    print("SCORES: ", scores)
-    print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?
+        print("SCORES: ", scores)
+        print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?
