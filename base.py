@@ -126,6 +126,7 @@ class EnergyPlusRunner:
             # °C
             "indoor_temp_attic": ("Zone Air Temperature", 'attic_unit1'),
 
+
             # # °C
             # "oat": ("Site Outdoor Air DryBulb Temperature", "Environment"),
             # # °C
@@ -141,11 +142,16 @@ class EnergyPlusRunner:
 
         self.meters = {
             # HVAC elec (J)
-            "elec": "Electricity:HVAC",
+            "elec_hvac": "Electricity:HVAC",
             # Heating
-            "heating_elec": "Heating:Electricity",
+            "elec_heating": "Heating:Electricity",
             # Cooling
-            "cooling_elec": "Cooling:Electricity"
+            "elec_cooling": "Cooling:Electricity",
+
+            'elec_facility': "Electricity:Facility",
+
+            # probably not need based on html output
+            'gas_heating': 'NaturalGas:HVAC'
 
             # District heating (J)
             # "dh": "Heating:DistrictHeating"
@@ -153,12 +159,13 @@ class EnergyPlusRunner:
         self.meter_handles: Dict[str, int] = {}
 
         self.actuators = {
+            # NOTE: ZoneControl:Thermostat
             # supply air temperature setpoint (°C)
-            "sat_spt": (
-                "System Node Setpoint",
-                "Temperature Setpoint",
-                "zone node_unit1"
-            ),
+            # "sat_spt": (
+            #     "System Node Setpoint",
+            #     "Temperature Setpoint",
+            #     "zone node_unit1"
+            # ),
             "cooling_actuator_living" : (
                 "Zone Temperature Control",
                 "Heating Setpoint",
@@ -170,6 +177,10 @@ class EnergyPlusRunner:
                 "Cooling Setpoint",
                 "living_unit1"
             )
+
+            # "test" : (
+            #     "Zone"
+            # )
         }
         self.actuator_handles: Dict[str, int] = {}
 
@@ -523,7 +534,7 @@ class EnergyPlusEnv(gym.Env):
 
         #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
         # reward = obs['elec']
-        reward = obs['heating_elec'] + obs['cooling_elec']
+        reward = obs['elec_heating'] + obs['elec_cooling']
         print('REWARD:', reward)
         # below is reward testing
         # reward = 10
