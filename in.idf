@@ -4905,6 +4905,25 @@
     Mains Inlet Branch_unit1,!- Branch 1 Name
     Water Heater Branch_unit1,  !- Branch 2 Name
     DHW Supply Outlet Branch_unit1;  !- Branch 3 Name
+ !-   Hot Water Loop Supply Branch 1 !- NOTE: I added these
+
+!- NOTE: added branch
+!-  Branch,
+!-    Hot Water Loop Supply Branch 1,
+!-    ,
+!-    DistrictHeating,
+!-    District Heating,
+!-    Node 14,
+!-    Node 17;
+!-
+!-!- NOTE: added this class
+!-  DistrictHeating,
+!-    District Heating,
+!-    Node 14,
+!-    Node 17,
+!-    Autosize;
+
+
 
   BranchList,
     DHW Demand Branches_unit1,  !- Name
@@ -5408,6 +5427,9 @@
     SumOrAverage,            !- Aggregation Type for Variable or Meter 5
     Zone Total Internal Total Heat Gain,  !- Variable or Meter 6 Name
     SumOrAverage;            !- Aggregation Type for Variable or Meter 6
+
+!- Personally added Output Meter
+!-   Output:Meter,Heating:DistrictHeating,Timestep;
 
 ! GPARM parameters as run:
 !    ID = US+SF+CZ6A+hp+slab+IECC_2021

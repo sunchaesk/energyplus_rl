@@ -10,6 +10,9 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
+import matplotlib as plt
+import pandas as pd
+
 EPISODES = 1000
 
 class DQNAgent:
@@ -62,33 +65,44 @@ class DQNAgent:
     def save(self, name):
         self.model.save_weights(name)
 
+default_args = {'idf': './in.idf',
+                'epw': './weather.epw',
+                'csv': True,
+                'output': './output',
+                'timesteps': 1000000.0,
+                'num_workers': 2
+                }
 
 if __name__ == "__main__":
-    env = gym.make('CartPole-v1')
-    state_size = env.observation_space.shape[0]
-    action_size = env.action_space.n
-    agent = DQNAgent(state_size, action_size)
-    # agent.load("./save/cartpole-dqn.h5")
-    done = False
-    batch_size = 32
+    env = base.EnergyPlusEnv(default_args)
+    print('action_space', env.action_space)
+    scores = []
+    for episode in range(2):
+    # env = gym.make('CartPole-v1')
+    # state_size = env.observation_space.shape[0]
+    # action_size = env.action_space.n
+    # agent = DQNAgent(state_size, action_size)
+    # # agent.load("./save/cartpole-dqn.h5")
+    # done = False
+    # batch_size = 32
 
-    for e in range(EPISODES):
-        state = env.reset()
-        state = np.reshape(state, [1, state_size])
-        for time in range(500):
-            # env.render()
-            action = agent.act(state)
-            next_state, reward, done, _ = env.step(action)
-            reward = reward if not done else -10
-            next_state = np.reshape(next_state, [1, state_size])
-            agent.memorize(state, action, reward, next_state, done)
-            state = next_state
-            if done:
-                print("episode: {}/{}, score: {}, e: {:.2}"
-                      .format(e, EPISODES, time, agent.epsilon))
-                break
-            if len(agent.memory) > batch_size:
-                agent.replay(batch_size)
+    # for e in range(EPISODES):
+    #     state = env.reset()
+    #     state = np.reshape(state, [1, state_size])
+    #     for time in range(500):
+    #         # env.render()
+    #         action = agent.act(state)
+    #         next_state, reward, done, _ = env.step(action)
+    #         reward = reward if not done else -10
+    #         next_state = np.reshape(next_state, [1, state_size])
+    #         agent.memorize(state, action, reward, next_state, done)
+    #         state = next_state
+    #         if done:
+    #             print("episode: {}/{}, score: {}, e: {:.2}"
+    #                   .format(e, EPISODES, time, agent.epsilon))
+    #             break
+    #         if len(agent.memory) > batch_size:
+    #             agent.replay(batch_size)
 
     # print('main')
     # env = base.EnergyPlusEnv(default_args)

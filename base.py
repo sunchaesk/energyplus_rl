@@ -31,6 +31,12 @@ NOTE:
     - sat_spt: system temperature node setpoint
 '''
 
+'''
+NOTE: mechanics of dual setpoint temperature control
+- higher setpoint is associated with
+- lower setpoint is associated with heating
+'''
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -126,7 +132,6 @@ class EnergyPlusRunner:
             # °C
             "indoor_temp_attic": ("Zone Air Temperature", 'attic_unit1'),
 
-
             # # °C
             # "oat": ("Site Outdoor Air DryBulb Temperature", "Environment"),
             # # °C
@@ -150,8 +155,8 @@ class EnergyPlusRunner:
 
             'elec_facility': "Electricity:Facility",
 
-            # probably not need based on html output
-            'gas_heating': 'NaturalGas:HVAC'
+            # probably not need based on html output NOTE: meter handle not found
+            # 'gas_heating': 'NaturalGas:HVAC',
 
             # District heating (J)
             # "dh": "Heating:DistrictHeating"
@@ -307,11 +312,13 @@ class EnergyPlusRunner:
             state=state_argument,
             actuator_handle=self.actuator_handles['cooling_actuator_living'],
             actuator_value=next_action[0]
+            # actuator_value=40.0
         )
         self.x.set_actuator_value(
             state=state_argument,
             actuator_handle=self.actuator_handles['heating_actuator_living'],
             actuator_value=next_action[1]
+            # actuator_value=15.0
         )
         #SCORES:  [20538820133.84012, 20538820133.84012]
         temp1 = self.x.get_actuator_value(state_argument,self.actuator_handles['cooling_actuator_living'])
@@ -403,7 +410,7 @@ class EnergyPlusEnv(gym.Env):
         self.timestep = 0
 
         # observation space:
-        # outdoor_temp, indoor_temp_living, indoor_temp_attic
+        # outdoor_temp, indoor_temp_living, indoor_temp_attic, date
         # NOTE: I am unsure about the actual bound -> set as larger than expected values
         # TODO update this stuff
         low_obs = np.array(
@@ -533,8 +540,8 @@ class EnergyPlusEnv(gym.Env):
         #oa_temp = api.exchange.get_variable_value(state, outdoor_temp_sensor)
 
         #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
-        # reward = obs['elec']
-        reward = obs['elec_heating'] + obs['elec_cooling']
+        reward = obs['elec_hvac']
+        # reward = obs['elec_heating'] + obs['elec_cooling']
         print('REWARD:', reward)
         # below is reward testing
         # reward = 10
@@ -578,14 +585,21 @@ class EnergyPlusEnv(gym.Env):
 
 
 # TODO: have to give in -x flag
-default_args = {'idf': '/home/ck/Downloads/Files/in.idf',
-                'epw': '/home/ck/Downloads/Files/weather.epw',
+# default_args = {'idf': '/home/ck/Downloads/Files/in.idf',
+#                 'epw': '/home/ck/Downloads/Files/weather.epw',
+#                 'csv': True,
+#                 'output': './output',
+#                 'timesteps': 1000000.0,
+#                 'num_workers': 2
+#                 }
+
+default_args = {'idf': './in.idf',
+                'epw': './weather.epw',
                 'csv': True,
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2
                 }
-
 # SCORES:  [81884676878.09312, 81884676878.09312]
 #
 #SCORES:  [76613073663.50632, 76613073663.50632]
