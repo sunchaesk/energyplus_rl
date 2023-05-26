@@ -11,6 +11,7 @@ from collections import deque
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
+import tensorflow as tf
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,9 +21,11 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=2500) # self.replay is hit when memory full
+        # self.memory = deque(maxlen=2500) # self.replay is hit when memory full
+        self.memory = deque(maxlen=250) # setting for debugging purposes
         self.gamma = 0.95    # discount rate
         self.epsilon = 1.0  # exploration rate
+        # self.epsilon = 0 # for debugging
         self.epsilon_min = 0.05
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
@@ -42,20 +45,46 @@ class DQNAgent:
         self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
+        # print("THIS RUNS FINE?", state, len(state))
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        act_values = self.model.predict(state)
+            #print('STATE:', type(state))
+        print("STATE: ", state)
+        state_array = np.array(state[0:3], dtype=np.float64)
+            #print("STATE ARRAY:", state_array[-1])
+        state_tensor = tf.constant(state_array)
+        #state_tensor = tf.constant([tf.constant(element) for element in state_array])
+        state_tensor = tf.reshape(state_tensor, (1,3))
+        act_values = self.model.predict(state_tensor)
+        print('ACT', act_values)
         return np.argmax(act_values[0])  # returns action
 
     # TODO: debug
+    # def replay(self, batch_size):
+    #     minibatch = random.sample(self.memory, batch_size)
+    #     print('REPLAY HIT')
+    #     for state, action, reward, next_state, done in minibatch:
+    #         target = reward
+    #         if not done:
+    #             target = (reward + self.gamma *
+    #                       np.amax(self.model.predict(next_state)[0]))
+    #         target_f = self.model.predict(state)
+    #         target_f[0][action] = target
+    #         self.model.fit(state, target_f, epochs=1, verbose=0)
+    #     if self.epsilon > self.epsilon_min:
+    #         print('hit')
+    #         self.epsilon *= self.epsilon_decay
+
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
         print('REPLAY HIT')
         for state, action, reward, next_state, done in minibatch:
+            print('NEXT_STATE', next_state, len(next_state), next_state.ndim)
+            print('STATE', state, len(state))
             target = reward
             if not done:
                 target = (reward + self.gamma *
-                          np.amax(self.model.predict(next_state)[0]))
+                          np.amax(self.model.predict(next_state)))
             target_f = self.model.predict(state)
             target_f[0][action] = target
             self.model.fit(state, target_f, epochs=1, verbose=0)
@@ -88,6 +117,7 @@ default_args = {'idf': './in.idf',
 if __name__ == "__main__":
     env = base.EnergyPlusEnv(default_args)
     state_size = env.observation_space.shape[0]
+    # print(env.observation_space.shape)
     action_size = env.action_space.n
     agent = DQNAgent(state_size, action_size)
 
@@ -124,7 +154,7 @@ if __name__ == "__main__":
         cumm_score = 0
         done = False
         while not done:
-            print('## EPSILON:', agent.epsilon)
+            # print('## EPSILON:', agent.epsilon)
             action = agent.act(state)
             next_state, reward, done, truncated, info = env.step(action) # truncated is not in use
             reward *= -1 # negate it to minimize

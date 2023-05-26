@@ -467,7 +467,8 @@ class EnergyPlusEnv(gym.Env):
         except Empty:
             obs = self.last_obs
 
-        return np.array(list(obs.values())), {}
+        #return np.array(list(obs.values())), {}
+        return np.array(list(obs.values()))
 
     def step(self, action):
         self.timestep += 1
