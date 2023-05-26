@@ -280,11 +280,11 @@ class EnergyPlusRunner:
                 for key, handle
                 in self.var_handles.items()
             },
-            **{
-                key: self.x.get_meter_value(state_argument, handle)
-                for key, handle
-                in self.meter_handles.items()
-            }
+            # **{
+            #     key: self.x.get_meter_value(state_argument, handle)
+            #     for key, handle
+            #     in self.meter_handles.items()
+            # }
         }
         self.obs_queue.put(self.next_obs)
 
@@ -468,6 +468,7 @@ class EnergyPlusEnv(gym.Env):
             obs = self.last_obs
 
         #return np.array(list(obs.values())), {}
+        print('OBS:', obs.values(), len(obs.values()))
         return np.array(list(obs.values()))
 
     def step(self, action):
@@ -488,7 +489,7 @@ class EnergyPlusEnv(gym.Env):
         #print('ACTION VAL:', sat_spt_value)
         sat_spt_gap = self._rescale(int(action)) # maybe need int(action)
 
-        sat_spt_value = tuple([22 - sat_spt_gap, 22 + sat_spt_gap])
+        sat_spt_value = tuple([22.0 - sat_spt_gap, 22.0 + sat_spt_gap])
 
         # set the system temperature actuator value to sat_spt_value
 
@@ -543,7 +544,7 @@ class EnergyPlusEnv(gym.Env):
         #oa_temp = api.exchange.get_variable_value(state, outdoor_temp_sensor)
 
         #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
-        reward = obs['elec_hvac']
+        reward = -1 * obs['elec_hvac']
         # reward = obs['elec_heating'] + obs['elec_cooling']
         # print('REWARD:', reward)
         # below is reward testing
@@ -603,6 +604,7 @@ if __name__ == "__main__":
     env = EnergyPlusEnv(default_args)
     print('action_space:', end='')
     print(env.action_space)
+    print("OBS SHAPE:", env.observation_space.shape)
     scores = []
     for episode in range(2):
         state = env.reset()
