@@ -427,7 +427,7 @@ class EnergyPlusEnv(gym.Env):
 
         # action space: supply air temperature (100 possible values)
         # 20 - 24 degrees
-        self.action_space: Discrete = Discrete(820)
+        self.action_space: Discrete = Discrete(20)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.obs_queue: Optional[Queue] = None
@@ -485,7 +485,9 @@ class EnergyPlusEnv(gym.Env):
         #     range2=(15, 30)
         # )
         #print('ACTION VAL:', sat_spt_value)
-        sat_spt_value = self._rescale(int(action)) # maybe need int(action)
+        sat_spt_gap = self._rescale(int(action)) # maybe need int(action)
+
+        sat_spt_value = tuple([22 - sat_spt_gap, 22 + sat_spt_gap])
 
         # set the system temperature actuator value to sat_spt_value
 
@@ -554,15 +556,8 @@ class EnergyPlusEnv(gym.Env):
     def _rescale(
             n: int
     ) -> float:
-        tuples = []
-        for i in range(200,240):
-            first_num = i/ 10.0
-            for j in range (i + 1, 241):
-                second_num = j / 10.0
-                tuples.append(tuple([first_num, second_num]))
-
-        #print(len(tuples))
-        return tuples[n]
+        setpoint_gaps = [0.1, 0.2, 0.3, 0.4, 0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
+        return setpoint_gaps[n]
 
         # def _rescale(
         #     n: int,

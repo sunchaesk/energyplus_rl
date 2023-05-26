@@ -20,10 +20,10 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=50000)
+        self.memory = deque(maxlen=2500) # self.replay is hit when memory full
         self.gamma = 0.95    # discount rate
         self.epsilon = 1.0  # exploration rate
-        self.epsilon_min = 0.01
+        self.epsilon_min = 0.05
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
         self.model = self._build_model()
@@ -47,8 +47,10 @@ class DQNAgent:
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])  # returns action
 
+    # TODO: debug
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
+        print('REPLAY HIT')
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
@@ -58,6 +60,7 @@ class DQNAgent:
             target_f[0][action] = target
             self.model.fit(state, target_f, epochs=1, verbose=0)
         if self.epsilon > self.epsilon_min:
+            print('hit')
             self.epsilon *= self.epsilon_decay
 
     def load(self, name):
@@ -88,15 +91,20 @@ if __name__ == "__main__":
     action_size = env.action_space.n
     agent = DQNAgent(state_size, action_size)
 
+
+    batch_size = 128
     checkpoint_num = 20
 
     scores = np.array([])
     episodes = 500
     start_episode = 0
 
-    scores = np.genfromtxt('saved_scores.csv', delimiter=',')
-    start_episode = len(scores)
-    agent.load('./model/agent-{}'.format(start_episode))
+    try:
+        scores = np.genfromtxt('saved_scores.csv', delimiter=',')
+        start_episode = len(scores)
+        agent.load('./model/agent-{}'.format(start_episode))
+    except:
+        print('## saved_scores.csv empty')
 
     #NOTE: DEPRECATED LOAD stuff, comment/uncomment to load model or not
     #curr_episode, prev_scores = load_prev_model(agent)
@@ -116,6 +124,7 @@ if __name__ == "__main__":
         cumm_score = 0
         done = False
         while not done:
+            print('## EPSILON:', agent.epsilon)
             action = agent.act(state)
             next_state, reward, done, truncated, info = env.step(action) # truncated is not in use
             reward *= -1 # negate it to minimize
@@ -123,6 +132,8 @@ if __name__ == "__main__":
             #next_state = np.reshape(next_state, [1,state_size])
             agent.memorize(state, action, reward, next_state, done)
             state = next_state
+            if len(agent.memory) > batch_size:
+                agent.replay(batch_size)
 
         print("episode: {}/{}, score:{}, e:{:.2}".format(episode, episodes,cumm_score,agent.epsilon))
         scores = np.append(scores, [cumm_score * -1])
@@ -134,6 +145,7 @@ if __name__ == "__main__":
     plt.title('E+ Reinforcement Learning')
     plt.show()
 
+#episode: 21/500, score:-81285147256.42249, e:1.0
 # TODO
 # - remove print statement -> just show current episode
 # - make a way to load model and still generate the graph at the end
