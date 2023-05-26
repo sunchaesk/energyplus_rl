@@ -324,8 +324,8 @@ class EnergyPlusRunner:
         temp1 = self.x.get_actuator_value(state_argument,self.actuator_handles['cooling_actuator_living'])
         temp2 = self.x.get_actuator_value(state_argument, self.actuator_handles['heating_actuator_living'])
         indoor = self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living'])
-        print('##', temp1, temp2)
-        print('#####', indoor)
+        # print('##', temp1, temp2)
+        # print('#####', indoor)
         #print('## ACTUATOR VAL:', temp)
 
     def _init_callback(self, state_argument) -> bool:
@@ -542,7 +542,7 @@ class EnergyPlusEnv(gym.Env):
         #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
         reward = obs['elec_hvac']
         # reward = obs['elec_heating'] + obs['elec_cooling']
-        print('REWARD:', reward)
+        # print('REWARD:', reward)
         # below is reward testing
         # reward = 10
         # print("#########################")

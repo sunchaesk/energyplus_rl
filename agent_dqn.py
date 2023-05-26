@@ -2,7 +2,9 @@
 
 import base
 
+import os
 import random
+
 import gym
 import numpy as np
 from collections import deque
@@ -10,16 +12,15 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-import matplotlib as plt
-import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
-EPISODES = 1000
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=2000)
+        self.memory = deque(maxlen=50000)
         self.gamma = 0.95    # discount rate
         self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01
@@ -30,8 +31,8 @@ class DQNAgent:
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
-        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(24, activation='relu'))
+        model.add(Dense(48, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(48, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
         model.compile(loss='mse',
                       optimizer=Adam(lr=self.learning_rate))
@@ -65,6 +66,14 @@ class DQNAgent:
     def save(self, name):
         self.model.save_weights(name)
 
+
+def load_prev_model(agent: DQNAgent):
+    '''
+    NOTE: deprecate -> just do this stuff manually
+    '''
+    prev_models = os.listdir('./models/')
+    prev_models = [os.path.splitext(fname)[0] for fname in prev_models]
+
 default_args = {'idf': './in.idf',
                 'epw': './weather.epw',
                 'csv': True,
@@ -75,9 +84,61 @@ default_args = {'idf': './in.idf',
 
 if __name__ == "__main__":
     env = base.EnergyPlusEnv(default_args)
-    print('action_space', env.action_space)
-    scores = []
-    for episode in range(2):
+    state_size = env.observation_space.shape[0]
+    action_size = env.action_space.n
+    agent = DQNAgent(state_size, action_size)
+
+    checkpoint_num = 20
+
+    scores = np.array([])
+    episodes = 500
+    start_episode = 0
+
+    scores = np.genfromtxt('saved_scores.csv', delimiter=',')
+    start_episode = len(scores)
+    agent.load('./model/agent-{}'.format(start_episode))
+
+    #NOTE: DEPRECATED LOAD stuff, comment/uncomment to load model or not
+    #curr_episode, prev_scores = load_prev_model(agent)
+
+    print('## state_size', state_size, '## action_size', action_size)
+    print('## action_space', env.action_space)
+    for episode in range(start_episode, episodes + 1):
+        print('################################################')
+        print('EPISODE:', episode)
+        print('################################################')
+        if episode % checkpoint_num == 0 and episode != 0:
+            agent.save('./model/agent-{}'.format(episode))
+            np.savetxt('saved_scores.csv', scores, delimiter=',')
+
+        state = env.reset()
+        #state = np.reshape(state, [1, state_size])
+        cumm_score = 0
+        done = False
+        while not done:
+            action = agent.act(state)
+            next_state, reward, done, truncated, info = env.step(action) # truncated is not in use
+            reward *= -1 # negate it to minimize
+            cumm_score += reward
+            #next_state = np.reshape(next_state, [1,state_size])
+            agent.memorize(state, action, reward, next_state, done)
+            state = next_state
+
+        print("episode: {}/{}, score:{}, e:{:.2}".format(episode, episodes,cumm_score,agent.epsilon))
+        scores = np.append(scores, [cumm_score * -1])
+        #scores.append(cumm_score * -1)
+
+    plt.plot(scores)
+    plt.ylabel('energy consumption')
+    plt.xlabel('episodes')
+    plt.title('E+ Reinforcement Learning')
+    plt.show()
+
+# TODO
+# - remove print statement -> just show current episode
+# - make a way to load model and still generate the graph at the end
+# - store the scores array somehow
+
     # env = gym.make('CartPole-v1')
     # state_size = env.observation_space.shape[0]
     # action_size = env.action_space.n
