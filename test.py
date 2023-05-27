@@ -139,7 +139,11 @@ class Agent:
             state = self.env.reset()
             while not done:
                 action = self.model.get_action(state)
+                print('ACTION:', action)
+                print('EPISODE', ep)
                 next_state, reward, done, _, _ = self.env.step(action)
+                print('NEXT_STATE', next_state)
+                print('REWARD', reward)
                 self.buffer.put(state, action, reward, next_state, done) # env returns negative rewards
                 total_reward += reward * -1 # add positive values to total_reward
                 state = next_state
@@ -187,7 +191,7 @@ default_args = {'idf': './in.idf',
 def main():
     env = base.EnergyPlusEnv(default_args)
     agent = Agent(env)
-    agent.train(max_episodes=500, check_point_num=10)
+    agent.train(max_episodes=500, check_point_num=2)
 
 if __name__ == "__main__":
     main()

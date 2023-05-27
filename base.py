@@ -99,9 +99,10 @@ def parse_args() -> argparse.Namespace:
 
 class EnergyPlusRunner:
 
-    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue) -> None:
+    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue, meter_queue: Queue) -> None:
         self.episode = episode
         self.env_config = env_config
+        self.meter_queue = meter_queue
         self.obs_queue = obs_queue
         self.act_queue = act_queue
         self.curr = None # current time of the simulation run for output directory naming
@@ -209,6 +210,7 @@ class EnergyPlusRunner:
 
         # register callback used to collect observations
         runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_obs)
+        runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_meter)
 
         # register callback used to send actions
         runtime.callback_after_predictor_after_hvac_managers(self.energyplus_state, self._send_actions)
@@ -261,6 +263,22 @@ class EnergyPlusRunner:
         ]
         print(eplus_args)
         return eplus_args
+
+    def _collect_meter(self, state_argument) -> None:
+        '''
+        For addressing -> values used to calculate rewards also seen in observation of the agent
+        '''
+        if self.simulation_complete or not self._init_callback(state_argument):
+            return
+
+        self.next_meter = {
+            **{
+                key: self.x.get_meter_value(state_argument, handle)
+                for key, handle
+                in self.meter_handles.items()
+            }
+        }
+        self.meter_queue.put(self.next_meter)
 
     def _collect_obs(self, state_argument) -> None:
         """
@@ -430,6 +448,7 @@ class EnergyPlusEnv(gym.Env):
         self.action_space: Discrete = Discrete(20)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
+        self.meter_queue: Optional[Queue] = None
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
@@ -449,12 +468,14 @@ class EnergyPlusEnv(gym.Env):
         # as only 1 E+ timestep is processed at a time
         self.obs_queue = Queue(maxsize=1)
         self.act_queue = Queue(maxsize=1)
+        self.meter_queue = Queue(maxsize=1)
 
         self.energyplus_runner = EnergyPlusRunner(
             episode=self.episode,
             env_config=self.env_config,
             obs_queue=self.obs_queue,
-            act_queue=self.act_queue
+            act_queue=self.act_queue,
+            meter_queue=self.meter_queue
         )
         self.energyplus_runner.start()
 
@@ -464,12 +485,15 @@ class EnergyPlusEnv(gym.Env):
 
         try:
             obs = self.obs_queue.get()
+            meter = self.meter_queue.get()
         except Empty:
+            meter = self.last_meter
             obs = self.last_obs
 
         #return np.array(list(obs.values())), {}
         print('OBS:', obs.values(), len(obs.values()))
         return np.array(list(obs.values()))
+        #return np.array(list(obs.values())), np.array(list(meter.values())) # TODO: change receiving end of self.reset() function
 
     def step(self, action):
         self.timestep += 1
@@ -506,9 +530,11 @@ class EnergyPlusEnv(gym.Env):
         try:
             self.act_queue.put(sat_spt_value, timeout=timeout)
             self.last_obs = obs = self.obs_queue.get(timeout=timeout)
+            self.last_meter = meter = self.meter_queue.get(timeout=timeout)
         except (Full, Empty):
             done = True
             obs = self.last_obs
+            meter = self.last_meter
 
         #print('ACTION_Q: ', self.act_queue)
 
@@ -519,16 +545,17 @@ class EnergyPlusEnv(gym.Env):
             done = True
 
         # compute reward
-        reward = self._compute_reward(obs)
+        reward = self._compute_reward(meter)
 
         obs_vec = np.array(list(obs.values()))
+        # TODO: obs referenced here
         return obs_vec, reward, done, False, {}
 
     def render(self, mode="human"):
         pass
 
     @staticmethod
-    def _compute_reward(obs: Dict[str, float]) -> float:
+    def _compute_reward(meter: Dict[str, float]) -> float:
         """compute reward scalar"""
         # if obs["htg_spt"] > 0 and obs["clg_spt"] > 0:
         #     tmp_rew = np.diff([
@@ -544,7 +571,7 @@ class EnergyPlusEnv(gym.Env):
         #oa_temp = api.exchange.get_variable_value(state, outdoor_temp_sensor)
 
         #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
-        reward = -1 * obs['elec_hvac']
+        reward = -1 * meter['elec_hvac']
         # reward = obs['elec_heating'] + obs['elec_cooling']
         # print('REWARD:', reward)
         # below is reward testing
@@ -607,19 +634,19 @@ if __name__ == "__main__":
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
     for episode in range(2):
-        state = env.reset()
+        state = env.reset()[0]
         done = False
         score = 0
 
         while not done:
             #env.render()
-            # action = env.action_space.sample()
+            #action = env.action_space.sample()
             #action = 22.0
             ret = n_state, reward, done, info, _ = env.step(env.action_space.sample())
+            print('THIS BE OBS?:', n_state)
             #print('RET STUFF:', ret)
             score+=reward
-            # print('DONE?:', done)
-            print('Episode:{} Reward:{} Score:{}'.format(episode, reward, score))
+            #print('Episode:{} Reward:{} Score:{}'.format(episode, reward, score))
 
         scores.append(score)
         print("SCORES: ", scores)
