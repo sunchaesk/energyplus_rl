@@ -50,7 +50,7 @@ class DQNAgent:
         self.action_dim = aciton_dim
         self.epsilon = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.9995
         self.learning_rate = 0.001
         self.gamma = 0.95
 
@@ -86,7 +86,7 @@ class DQNAgent:
         return np.argmax(q_value)
 
     def train(self, states, targets):
-        self.model.fit(states, targets, epochs=1, verbose=0)
+        self.model.fit(states, targets, epochs=1, verbose=2)
 
 
 class Agent:
@@ -106,7 +106,8 @@ class Agent:
         self.target_model.model.set_weights(weights)
 
     def replay(self):
-        for _ in range(40):
+        print('IS THIS WHAT')
+        for _ in range(10):
             states, actions, rewards, next_states, done = self.buffer.sample()
             targets = self.target_model.predict(states)
             next_q_values = self.target_model.predict(next_states).max(axis=1)
@@ -139,11 +140,16 @@ class Agent:
             state = self.env.reset()
             while not done:
                 action = self.model.get_action(state)
-                print('ACTION:', action)
-                print('EPISODE', ep)
                 next_state, reward, done, _, _ = self.env.step(action)
-                print('NEXT_STATE', next_state)
-                print('REWARD', reward)
+                # print('ACTION:', action)
+                # print('EPISODE', ep)
+                # print('NEXT_STATE', next_state)
+                # print('REWARD', reward)
+                # print('DONE?:', done)
+                # print('EPSILON', self.model.epsilon)
+                # print()
+                # print()
+                # print()
                 self.buffer.put(state, action, reward, next_state, done) # env returns negative rewards
                 total_reward += reward * -1 # add positive values to total_reward
                 state = next_state
@@ -191,7 +197,7 @@ default_args = {'idf': './in.idf',
 def main():
     env = base.EnergyPlusEnv(default_args)
     agent = Agent(env)
-    agent.train(max_episodes=500, check_point_num=2)
+    agent.train(max_episodes=500, check_point_num=10)
 
 if __name__ == "__main__":
     main()
