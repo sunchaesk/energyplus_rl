@@ -410,22 +410,22 @@
     2.70719591738945,        !- Length {m}
     1.52439024390244;        !- Height {m}
 
-!  BuildingSurface:Detailed,
-!    Floor_unit1,             !- Name
-!    Floor,                   !- Surface Type
-!    Interior Floor,          !- Construction Name
-!    living_unit1,            !- Zone Name
-!    ,                        !- Space Name
-!    GroundSlabPreprocessorAverage,  !- Outside Boundary Condition
-!    surfPropOthSdCoefSlabAverage,  !- Outside Boundary Condition Object
-!    NoSun,                   !- Sun Exposure
-!    NoWind,                  !- Wind Exposure
-!    0.0,                     !- View Factor to Ground
-!    4,                       !- Number of Vertices
-!    0,0,0.0101,  !- X,Y,Z ==> Vertex 1 {m}
-!    0,9.09981820971244,0.0101,  !- X,Y,Z ==> Vertex 2 {m}
-!    12.1330909462833,9.09981820971244,0.0101,  !- X,Y,Z ==> Vertex 3 {m}
-!    12.1330909462833,0,0.0101;  !- X,Y,Z ==> Vertex 4 {m}
+ ! BuildingSurface:Detailed,
+ !   Floor_unit1,             !- Name
+ !   Floor,                   !- Surface Type
+ !   Interior Floor,          !- Construction Name
+ !   living_unit1,            !- Zone Name
+ !   ,                        !- Space Name
+ !   GroundSlabPreprocessorAverage,  !- Outside Boundary Condition
+ !   surfPropOthSdCoefSlabAverage,  !- Outside Boundary Condition Object
+ !   NoSun,                   !- Sun Exposure
+ !   NoWind,                  !- Wind Exposure
+ !   0.0,                     !- View Factor to Ground
+ !   4,                       !- Number of Vertices
+ !   0,0,0.0101,  !- X,Y,Z ==> Vertex 1 {m}
+ !   0,9.09981820971244,0.0101,  !- X,Y,Z ==> Vertex 2 {m}
+ !   12.1330909462833,9.09981820971244,0.0101,  !- X,Y,Z ==> Vertex 3 {m}
+ !   12.1330909462833,0,0.0101;  !- X,Y,Z ==> Vertex 4 {m}
 
   Door,
     Door_ldb_unit1,          !- Name
@@ -580,13 +580,14 @@
 
 !-   ===========  ALL OBJECTS IN CLASS: RUNPERIOD ===========
 
+!- RunPeriod setup for summer
   RunPeriod,
     annual,                  !- Name
-    1,                       !- Begin Month
-    1,                       !- Begin Day of Month
+    6,                       !- Begin Month
+    21,                       !- Begin Day of Month
     ,                        !- Begin Year
-    12,                      !- End Month
-    31,                      !- End Day of Month
+    8,                      !- End Month
+    21,                      !- End Day of Month
     ,                        !- End Year
     Sunday,                  !- Day of Week for Start Day
     Yes,                     !- Use Weather File Holidays and Special Days
@@ -595,6 +596,22 @@
     Yes,                     !- Use Weather File Rain Indicators
     Yes,                     !- Use Weather File Snow Indicators
     ;                        !- Treat Weather as Actual
+
+! RunPeriod,
+!   annual,                  !- Name
+!   1,                       !- Begin Month
+!   1,                       !- Begin Day of Month
+!   ,                        !- Begin Year
+!   12,                      !- End Month
+!   31,                      !- End Day of Month
+!   ,                        !- End Year
+!   Sunday,                  !- Day of Week for Start Day
+!   Yes,                     !- Use Weather File Holidays and Special Days
+!   Yes,                     !- Use Weather File Daylight Saving Period
+!   No,                      !- Apply Weekend Holiday Rule
+!   Yes,                     !- Use Weather File Rain Indicators
+!   Yes,                     !- Use Weather File Snow Indicators
+!   ;                        !- Treat Weather as Actual
 
 !-   ===========  ALL OBJECTS IN CLASS: SCHEDULETYPELIMITS ===========
 

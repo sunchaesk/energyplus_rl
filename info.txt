@@ -1,4 +1,440 @@
-
+Actuator,Weather Data,Outdoor Dry Bulb,Environment;
+Actuator,Weather Data,Outdoor Dew Point,Environment;
+Actuator,Weather Data,Outdoor Relative Humidity,Environment;
+Actuator,Weather Data,Diffuse Solar,Environment;
+Actuator,Weather Data,Direct Solar,Environment;
+Actuator,Weather Data,Wind Speed,Environment;
+Actuator,Weather Data,Wind Direction,Environment;
+Actuator,Schedule:Year,Schedule Value,OCCUPANCY;
+Actuator,Schedule:Year,Schedule Value,INTERIORLIGHTING;
+Actuator,Schedule:Year,Schedule Value,INTERIORLIGHTINGHE;
+Actuator,Schedule:Year,Schedule Value,INTERIORLIGHTINGHE_OS;
+Actuator,Schedule:Year,Schedule Value,INTERIORLIGHTINGHE_VS;
+Actuator,Schedule:Year,Schedule Value,EXTERIORLIGHTING;
+Actuator,Schedule:Year,Schedule Value,REFRIGERATOR;
+Actuator,Schedule:Year,Schedule Value,MISCPLUGLOAD;
+Actuator,Schedule:Year,Schedule Value,COOKINGRANGE;
+Actuator,Schedule:Year,Schedule Value,DHW_SCH;
+Actuator,Schedule:Year,Schedule Value,DISHWASHER;
+Actuator,Schedule:Year,Schedule Value,CLOTHESWASHER;
+Actuator,Schedule:Year,Schedule Value,CLOTHESDRYER;
+Actuator,Schedule:Year,Schedule Value,SINKS;
+Actuator,Schedule:Year,Schedule Value,SHOWERS;
+Actuator,Schedule:Year,Schedule Value,BATHS;
+Actuator,Schedule:Year,Schedule Value,DHWDIST;
+Actuator,Schedule:Compact,Schedule Value,BA_SHOWER_SCH;
+Actuator,Schedule:Compact,Schedule Value,BA_BATH_SCH;
+Actuator,Schedule:Compact,Schedule Value,BA_SINK_SCH;
+Actuator,Schedule:Compact,Schedule Value,ACTIVITY_SCH;
+Actuator,Schedule:Compact,Schedule Value,INF_SCH;
+Actuator,Schedule:Compact,Schedule Value,ZONE_CONTROL_TYPE;
+Actuator,Schedule:Compact,Schedule Value,SHADING_2012IECC;
+Actuator,Schedule:Compact,Schedule Value,SHADING_2009IECC;
+Actuator,Schedule:Compact,Schedule Value,DHW_SETPT;
+Actuator,Schedule:Compact,Schedule Value,DHW_SETPT_HPWH;
+Actuator,Schedule:Compact,Schedule Value,SUPPLY-AIR-TEMP-SCH;
+Actuator,Schedule:Compact,Schedule Value,ALWAYS_AVAIL;
+Actuator,Schedule:Compact,Schedule Value,ALWAYS_OFF;
+Actuator,Schedule:Compact,Schedule Value,HEATING_SCH_HREF;
+Actuator,Schedule:Compact,Schedule Value,COOLING_SCH_HREF;
+Actuator,Schedule:Compact,Schedule Value,HEATING_SCH;
+Actuator,Schedule:Compact,Schedule Value,COOLING_SCH;
+Actuator,Schedule:Compact,Schedule Value,FAN_CYCLE;
+Actuator,Schedule:Constant,Schedule Value,DWWATERTEMPSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,CWWATERTEMPSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,SINKSENSSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,SINKLATSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,SHOWERSENSSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,SHOWERLATSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,BATHSENSSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,BATHLATSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,SSBWATERTEMPSCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,WATERHEATERSP1SCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,WATERHEATERSP2SCHEDULE;
+Actuator,Schedule:Constant,Schedule Value,DHWSUPPLYSETPOINT;
+Actuator,Schedule:Constant,Schedule Value,BOILER_SETPT;
+Actuator,Schedule:Constant,Schedule Value,COMPRESSOR SETPOINT;
+Actuator,Schedule:Constant,Schedule Value,DOASHIGHTEMP;
+Actuator,Schedule:Constant,Schedule Value,DOASLOWTEMP;
+Actuator,Material,Surface Property Solar Absorptance,SHEATHING_CONSOL_LAYER;
+Actuator,Material,Surface Property Thermal Absorptance,SHEATHING_CONSOL_LAYER;
+Actuator,Material,Surface Property Visible Absorptance,SHEATHING_CONSOL_LAYER;
+Actuator,Material,Surface Property Solar Absorptance,CEIL_CONSOL_LAYER;
+Actuator,Material,Surface Property Thermal Absorptance,CEIL_CONSOL_LAYER;
+Actuator,Material,Surface Property Visible Absorptance,CEIL_CONSOL_LAYER;
+Actuator,Material,Surface Property Solar Absorptance,FLOOR_CONSOL_LAYER;
+Actuator,Material,Surface Property Thermal Absorptance,FLOOR_CONSOL_LAYER;
+Actuator,Material,Surface Property Visible Absorptance,FLOOR_CONSOL_LAYER;
+Actuator,Material,Surface Property Solar Absorptance,BSMTWALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Thermal Absorptance,BSMTWALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Visible Absorptance,BSMTWALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Solar Absorptance,CRAWLWALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Thermal Absorptance,CRAWLWALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Visible Absorptance,CRAWLWALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Solar Absorptance,WALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Thermal Absorptance,WALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Visible Absorptance,WALL_CONSOL_LAYER;
+Actuator,Material,Surface Property Solar Absorptance,VERY HIGH REFLECTIVITY SURFACE;
+Actuator,Material,Surface Property Thermal Absorptance,VERY HIGH REFLECTIVITY SURFACE;
+Actuator,Material,Surface Property Visible Absorptance,VERY HIGH REFLECTIVITY SURFACE;
+Actuator,Material,Surface Property Solar Absorptance,GYPSUMBOARD-5/16IN;
+Actuator,Material,Surface Property Thermal Absorptance,GYPSUMBOARD-5/16IN;
+Actuator,Material,Surface Property Visible Absorptance,GYPSUMBOARD-5/16IN;
+Actuator,Material,Surface Property Solar Absorptance,COPPERPIPE;
+Actuator,Material,Surface Property Thermal Absorptance,COPPERPIPE;
+Actuator,Material,Surface Property Visible Absorptance,COPPERPIPE;
+Actuator,Material,Surface Property Solar Absorptance,F08 METAL SURFACE;
+Actuator,Material,Surface Property Thermal Absorptance,F08 METAL SURFACE;
+Actuator,Material,Surface Property Visible Absorptance,F08 METAL SURFACE;
+Actuator,Material,Surface Property Solar Absorptance,CONCRETE_4IN;
+Actuator,Material,Surface Property Thermal Absorptance,CONCRETE_4IN;
+Actuator,Material,Surface Property Visible Absorptance,CONCRETE_4IN;
+Actuator,Material,Surface Property Solar Absorptance,ASPHALT_SHINGLE;
+Actuator,Material,Surface Property Thermal Absorptance,ASPHALT_SHINGLE;
+Actuator,Material,Surface Property Visible Absorptance,ASPHALT_SHINGLE;
+Actuator,Material,Surface Property Solar Absorptance,WOOD_SHINGLE;
+Actuator,Material,Surface Property Thermal Absorptance,WOOD_SHINGLE;
+Actuator,Material,Surface Property Visible Absorptance,WOOD_SHINGLE;
+Actuator,Material,Surface Property Solar Absorptance,SLATE_SHINGLE;
+Actuator,Material,Surface Property Thermal Absorptance,SLATE_SHINGLE;
+Actuator,Material,Surface Property Visible Absorptance,SLATE_SHINGLE;
+Actuator,Material,Surface Property Solar Absorptance,CEMENT_STUCCO;
+Actuator,Material,Surface Property Thermal Absorptance,CEMENT_STUCCO;
+Actuator,Material,Surface Property Visible Absorptance,CEMENT_STUCCO;
+Actuator,Material,Surface Property Solar Absorptance,SYN_STUCCO;
+Actuator,Material,Surface Property Thermal Absorptance,SYN_STUCCO;
+Actuator,Material,Surface Property Visible Absorptance,SYN_STUCCO;
+Actuator,Material,Surface Property Solar Absorptance,DRYWALL_1/2IN;
+Actuator,Material,Surface Property Thermal Absorptance,DRYWALL_1/2IN;
+Actuator,Material,Surface Property Visible Absorptance,DRYWALL_1/2IN;
+Actuator,Material,Surface Property Solar Absorptance,OSB_5/8IN;
+Actuator,Material,Surface Property Thermal Absorptance,OSB_5/8IN;
+Actuator,Material,Surface Property Visible Absorptance,OSB_5/8IN;
+Actuator,Material,Surface Property Solar Absorptance,OSB_7/16IN;
+Actuator,Material,Surface Property Thermal Absorptance,OSB_7/16IN;
+Actuator,Material,Surface Property Visible Absorptance,OSB_7/16IN;
+Actuator,Material,Surface Property Solar Absorptance,BLOWN_R30;
+Actuator,Material,Surface Property Thermal Absorptance,BLOWN_R30;
+Actuator,Material,Surface Property Visible Absorptance,BLOWN_R30;
+Actuator,Material,Surface Property Solar Absorptance,BLOWN_R30_TOP;
+Actuator,Material,Surface Property Thermal Absorptance,BLOWN_R30_TOP;
+Actuator,Material,Surface Property Visible Absorptance,BLOWN_R30_TOP;
+Actuator,Material,Surface Property Solar Absorptance,PLYWOOD_3/4IN;
+Actuator,Material,Surface Property Thermal Absorptance,PLYWOOD_3/4IN;
+Actuator,Material,Surface Property Visible Absorptance,PLYWOOD_3/4IN;
+Actuator,Material,Surface Property Solar Absorptance,BATT_R19;
+Actuator,Material,Surface Property Thermal Absorptance,BATT_R19;
+Actuator,Material,Surface Property Visible Absorptance,BATT_R19;
+Actuator,Material,Surface Property Solar Absorptance,LUMBER_2X4;
+Actuator,Material,Surface Property Thermal Absorptance,LUMBER_2X4;
+Actuator,Material,Surface Property Visible Absorptance,LUMBER_2X4;
+Actuator,Material,Surface Property Solar Absorptance,CARPET_N_PAD;
+Actuator,Material,Surface Property Thermal Absorptance,CARPET_N_PAD;
+Actuator,Material,Surface Property Visible Absorptance,CARPET_N_PAD;
+Actuator,Material,Surface Property Solar Absorptance,BATT_R13;
+Actuator,Material,Surface Property Thermal Absorptance,BATT_R13;
+Actuator,Material,Surface Property Visible Absorptance,BATT_R13;
+Actuator,Material,Surface Property Solar Absorptance,OSB_1/2IN;
+Actuator,Material,Surface Property Thermal Absorptance,OSB_1/2IN;
+Actuator,Material,Surface Property Visible Absorptance,OSB_1/2IN;
+Actuator,Material,Surface Property Solar Absorptance,SOIL_12IN;
+Actuator,Material,Surface Property Thermal Absorptance,SOIL_12IN;
+Actuator,Material,Surface Property Visible Absorptance,SOIL_12IN;
+Actuator,Material,Surface Property Solar Absorptance,DOOR_CONST;
+Actuator,Material,Surface Property Thermal Absorptance,DOOR_CONST;
+Actuator,Material,Surface Property Visible Absorptance,DOOR_CONST;
+Actuator,Material,Surface Property Solar Absorptance,GYP_BOARD_1/2IN;
+Actuator,Material,Surface Property Thermal Absorptance,GYP_BOARD_1/2IN;
+Actuator,Material,Surface Property Visible Absorptance,GYP_BOARD_1/2IN;
+Actuator,Material,Surface Property Solar Absorptance,STD WOOD 6INCH;
+Actuator,Material,Surface Property Thermal Absorptance,STD WOOD 6INCH;
+Actuator,Material,Surface Property Visible Absorptance,STD WOOD 6INCH;
+Actuator,Material,Surface Property Solar Absorptance,PIPE INSULATION;
+Actuator,Material,Surface Property Thermal Absorptance,PIPE INSULATION;
+Actuator,Material,Surface Property Visible Absorptance,PIPE INSULATION;
+Actuator,Material,Surface Property Solar Absorptance,MANF_WALL_AIRGAP;
+Actuator,Material,Surface Property Thermal Absorptance,MANF_WALL_AIRGAP;
+Actuator,Material,Surface Property Visible Absorptance,MANF_WALL_AIRGAP;
+Actuator,Material,Surface Property Solar Absorptance,BLDG_PAPER_FELT;
+Actuator,Material,Surface Property Thermal Absorptance,BLDG_PAPER_FELT;
+Actuator,Material,Surface Property Visible Absorptance,BLDG_PAPER_FELT;
+Actuator,Material,Surface Property Solar Absorptance,R_HIGH;
+Actuator,Material,Surface Property Thermal Absorptance,R_HIGH;
+Actuator,Material,Surface Property Visible Absorptance,R_HIGH;
+Actuator,People,Number of People,PEOPLE_UNIT1;
+Actuator,Lights,Electricity Rate,LIVING HARDWIRED LIGHTING1;
+Actuator,Lights,Electricity Rate,LIVING PLUG-IN LIGHTING1;
+Actuator,ElectricEquipment,Electricity Rate,DISHWASHER1;
+Actuator,ElectricEquipment,Electricity Rate,REFRIGERATOR1;
+Actuator,ElectricEquipment,Electricity Rate,CLOTHESWASHER1;
+Actuator,ElectricEquipment,Electricity Rate,ELECTRIC_DRYER1;
+Actuator,ElectricEquipment,Electricity Rate,ELECTRIC_RANGE1;
+Actuator,ElectricEquipment,Electricity Rate,TELEVISION1;
+Actuator,ElectricEquipment,Electricity Rate,ELECTRIC_MELS1;
+Actuator,ElectricEquipment,Electricity Rate,IECC_ADJ1;
+Actuator,Window Shading Control,Control Status,WINDOW_LDF_1.UNIT1;
+Actuator,Window Shading Control,Control Status,WINDOW_LDB_1.UNIT1;
+Actuator,Window Shading Control,Control Status,WINDOW_SDR_1.UNIT1;
+Actuator,Window Shading Control,Control Status,WINDOW_SDL_1.UNIT1;
+Actuator,Window Shading Control,Control Status,WINDOW_LDF_2.UNIT1;
+Actuator,Window Shading Control,Control Status,WINDOW_LDB_2.UNIT1;
+Actuator,Window Shading Control,Control Status,WINDOW_SDR_2.UNIT1;
+Actuator,Window Shading Control,Control Status,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,OVERHANG_SDR_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,OVERHANG_SDR_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,Mir-OVERHANG_SDR_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,Mir-OVERHANG_SDR_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,OVERHANG_SDR_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,OVERHANG_SDR_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,Mir-OVERHANG_SDR_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,Mir-OVERHANG_SDR_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_LDF_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_LDF_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_SDR_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_SDR_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_LDB_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_LDB_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_SDL_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_SDL_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_LDF_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_LDF_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_SDR_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_SDR_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_LDB_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_LDB_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WALL_SDL_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WALL_SDL_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,INTER ZONE FLOOR 1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,INTER ZONE FLOOR 1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,CEILING_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,CEILING_UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,INTERNALMASS_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,INTERNALMASS_UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,DOOR_LDB_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,DOOR_LDB_UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,ROOF_RIGHT_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,ROOF_RIGHT_UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,ROOF_LEFT_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,ROOF_LEFT_UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,iz-CEILING_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,iz-CEILING_UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,ROOF_FRONT_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,ROOF_FRONT_UNIT1;
+Actuator,Surface,Interior Surface Convection Heat Transfer Coefficient,ROOF_BACK_UNIT1;
+Actuator,Surface,Exterior Surface Convection Heat Transfer Coefficient,ROOF_BACK_UNIT1;
+Actuator,Surface,Construction State,WALL_LDF_1.UNIT1;
+Actuator,Surface,Construction State,WALL_SDR_1.UNIT1;
+Actuator,Surface,Construction State,WALL_LDB_1.UNIT1;
+Actuator,Surface,Construction State,WALL_SDL_1.UNIT1;
+Actuator,Surface,Construction State,WALL_LDF_2.UNIT1;
+Actuator,Surface,Construction State,WALL_SDR_2.UNIT1;
+Actuator,Surface,Construction State,WALL_LDB_2.UNIT1;
+Actuator,Surface,Construction State,WALL_SDL_2.UNIT1;
+Actuator,Surface,Construction State,INTER ZONE FLOOR 1;
+Actuator,Surface,Construction State,CEILING_UNIT1;
+Actuator,Surface,Construction State,INTERNALMASS_UNIT1;
+Actuator,Surface,Construction State,DOOR_LDB_UNIT1;
+Actuator,Surface,Construction State,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,Construction State,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,Construction State,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,Construction State,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,Construction State,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,Construction State,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,Construction State,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,Construction State,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Construction State,ROOF_RIGHT_UNIT1;
+Actuator,Surface,Construction State,ROOF_LEFT_UNIT1;
+Actuator,Surface,Construction State,iz-CEILING_UNIT1;
+Actuator,Surface,Construction State,ROOF_FRONT_UNIT1;
+Actuator,Surface,Construction State,ROOF_BACK_UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_LDF_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_SDR_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_LDB_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_SDL_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_LDF_2.UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_SDR_2.UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_LDB_2.UNIT1;
+Actuator,Surface,View Factor To Ground,WALL_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WALL_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WALL_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WALL_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WALL_SDL_2.UNIT1;
+Actuator,Surface,View Factor To Ground,DOOR_LDB_UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,DOOR_LDB_UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,DOOR_LDB_UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,DOOR_LDB_UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,DOOR_LDB_UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_LDF_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_LDB_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_SDR_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_SDL_1.UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_LDF_2.UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_LDB_2.UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_SDR_2.UNIT1;
+Actuator,Surface,View Factor To Ground,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,WINDOW_SDL_2.UNIT1;
+Actuator,Surface,View Factor To Ground,ROOF_RIGHT_UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,ROOF_RIGHT_UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,ROOF_RIGHT_UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,ROOF_RIGHT_UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,ROOF_RIGHT_UNIT1;
+Actuator,Surface,View Factor To Ground,ROOF_LEFT_UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,ROOF_LEFT_UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,ROOF_LEFT_UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,ROOF_LEFT_UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,ROOF_LEFT_UNIT1;
+Actuator,Surface,View Factor To Ground,ROOF_FRONT_UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,ROOF_FRONT_UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,ROOF_FRONT_UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,ROOF_FRONT_UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,ROOF_FRONT_UNIT1;
+Actuator,Surface,View Factor To Ground,ROOF_BACK_UNIT1;
+Actuator,Surface,Outdoor Air Drybulb Temperature,ROOF_BACK_UNIT1;
+Actuator,Surface,Outdoor Air Wetbulb Temperature,ROOF_BACK_UNIT1;
+Actuator,Surface,Outdoor Air Wind Speed,ROOF_BACK_UNIT1;
+Actuator,Surface,Outdoor Air Wind Direction,ROOF_BACK_UNIT1;
+Actuator,Zone,Outdoor Air Drybulb Temperature,LIVING_UNIT1;
+Actuator,Zone,Outdoor Air Wetbulb Temperature,LIVING_UNIT1;
+Actuator,Zone,Outdoor Air Wind Speed,LIVING_UNIT1;
+Actuator,Zone,Outdoor Air Wind Direction,LIVING_UNIT1;
+Actuator,Zone,Outdoor Air Drybulb Temperature,ATTIC_UNIT1;
+Actuator,Zone,Outdoor Air Wetbulb Temperature,ATTIC_UNIT1;
+Actuator,Zone,Outdoor Air Wind Speed,ATTIC_UNIT1;
+Actuator,Zone,Outdoor Air Wind Direction,ATTIC_UNIT1;
+Actuator,Coil:Cooling:DX:SingleSpeed,Autosized Rated Air Flow Rate,DX COOLING COIL_UNIT1;
+Actuator,Coil:Cooling:DX:SingleSpeed,Autosized Rated Sensible Heat Ratio,DX COOLING COIL_UNIT1;
+Actuator,Coil:Cooling:DX:SingleSpeed,Autosized Rated Total Cooling Capacity,DX COOLING COIL_UNIT1;
+Actuator,Fan,Fan Air Mass Flow Rate,SUPPLY FAN_UNIT1;
+Actuator,Fan,Fan Pressure Rise,SUPPLY FAN_UNIT1;
+Actuator,Fan,Fan Total Efficiency,SUPPLY FAN_UNIT1;
+Actuator,Fan,Fan Autosized Air Flow Rate,SUPPLY FAN_UNIT1;
+Actuator,Fan,Fan Air Mass Flow Rate,OASUPPLYFAN_UNIT1;
+Actuator,Fan,Fan Pressure Rise,OASUPPLYFAN_UNIT1;
+Actuator,Fan,Fan Total Efficiency,OASUPPLYFAN_UNIT1;
+Actuator,Fan,Fan Autosized Air Flow Rate,OASUPPLYFAN_UNIT1;
+Actuator,Fan,Fan Air Mass Flow Rate,OAEXHAUSTFAN_UNIT1;
+Actuator,Fan,Fan Pressure Rise,OAEXHAUSTFAN_UNIT1;
+Actuator,Fan,Fan Total Efficiency,OAEXHAUSTFAN_UNIT1;
+Actuator,Fan,Fan Autosized Air Flow Rate,OAEXHAUSTFAN_UNIT1;
+Actuator,Fan,Fan Air Mass Flow Rate,HEAT PUMP WATER HEATER FAN_UNIT1;
+Actuator,Fan,Fan Pressure Rise,HEAT PUMP WATER HEATER FAN_UNIT1;
+Actuator,Fan,Fan Total Efficiency,HEAT PUMP WATER HEATER FAN_UNIT1;
+Actuator,Fan,Fan Autosized Air Flow Rate,HEAT PUMP WATER HEATER FAN_UNIT1;
+Actuator,Zone Ventilation,Air Exchange Flow Rate,VENTILATION_UNIT1;
+Actuator,Plant Loop Overall,On/Off Supervisory,DHW LOOP_UNIT1;
+Actuator,Supply Side Half Loop,On/Off Supervisory,DHW LOOP_UNIT1;
+Actuator,Demand Side Half Loop,On/Off Supervisory,DHW LOOP_UNIT1;
+Actuator,Demand Side Branch,On/Off Supervisory,DHW DEMAND INLET BRANCH_UNIT1;
+Actuator,Plant Component Pipe:Adiabatic,On/Off Supervisory,DHW DEMAND INLET PIPE_UNIT1;
+Actuator,Demand Side Branch,On/Off Supervisory,WATER SINK BRANCH_UNIT1;
+Actuator,Plant Component WaterUse:Connections,On/Off Supervisory,DHW SINKS_UNIT1;
+Actuator,Demand Side Branch,On/Off Supervisory,WATER SHOWER BRANCH_UNIT1;
+Actuator,Plant Component WaterUse:Connections,On/Off Supervisory,DHW SHOWERS_UNIT1;
+Actuator,Demand Side Branch,On/Off Supervisory,WATER CLOTHESWASHER BRANCH_UNIT1;
+Actuator,Plant Component WaterUse:Connections,On/Off Supervisory,DHW CLOTHESWASHER_UNIT1;
+Actuator,Demand Side Branch,On/Off Supervisory,WATER DISHWASHER BRANCH_UNIT1;
+Actuator,Plant Component WaterUse:Connections,On/Off Supervisory,DHW DISHWASHER_UNIT1;
+Actuator,Demand Side Branch,On/Off Supervisory,WATER BATH BRANCH_UNIT1;
+Actuator,Plant Component WaterUse:Connections,On/Off Supervisory,DHW BATHS_UNIT1;
+Actuator,Demand Side Branch,On/Off Supervisory,MAINS MAKEUP BRANCH_UNIT1;
+Actuator,Plant Component Pipe:Adiabatic,On/Off Supervisory,MAINS MAKEUP PIPE_UNIT1;
+Actuator,Supply Side Branch,On/Off Supervisory,MAINS INLET BRANCH_UNIT1;
+Actuator,Plant Component Pump:VariableSpeed,On/Off Supervisory,MAINS PRESSURE_UNIT1;
+Actuator,Supply Side Branch,On/Off Supervisory,WATER HEATER BRANCH_UNIT1;
+Actuator,Plant Component WaterHeater:HeatPump:WrappedCondenser,On/Off Supervisory,WATER HEATER_UNIT1;
+Actuator,Supply Side Branch,On/Off Supervisory,DHW SUPPLY OUTLET BRANCH_UNIT1;
+Actuator,Plant Component Pipe:Adiabatic,On/Off Supervisory,DHW SUPPLY OUTLET PIPE_UNIT1;
+Actuator,Sizing:Zone,Zone Design Heating Air Mass Flow Rate,LIVING_UNIT1;
+Actuator,Sizing:Zone,Zone Design Cooling Air Mass Flow Rate,LIVING_UNIT1;
+Actuator,Sizing:Zone,Zone Design Heating Load,LIVING_UNIT1;
+Actuator,Sizing:Zone,Zone Design Cooling Load,LIVING_UNIT1;
+Actuator,Sizing:Zone,Zone Design Heating Vol Flow,LIVING_UNIT1;
+Actuator,Sizing:Zone,Zone Design Cooling Vol Flow,LIVING_UNIT1;
+Actuator,Zone Temperature Control,Heating Setpoint,LIVING_UNIT1;
+Actuator,Zone Temperature Control,Cooling Setpoint,LIVING_UNIT1;
+Actuator,AirTerminal:SingleDuct:ConstantVolume:NoReheat,Mass Flow Rate,ZONEDIRECTAIR_UNIT1;
+Actuator,Sizing:System,Main Supply Volume Flow Rate,CENTRAL SYSTEM_UNIT1;
+Actuator,Sizing:System,Main Supply Coincident Peak Cooling Mass Flow Rate,CENTRAL SYSTEM_UNIT1;
+Actuator,Sizing:System,Main Supply Coincident Peak Heating Mass Flow Rate,CENTRAL SYSTEM_UNIT1;
+Actuator,Sizing:System,Main Supply Noncoincident Peak Cooling Mass Flow Rate,CENTRAL SYSTEM_UNIT1;
+Actuator,Sizing:System,Main Supply Noncoincident Peak Heating Mass Flow Rate,CENTRAL SYSTEM_UNIT1;
+Actuator,Sizing:System,Main Heating Volume Flow Rate,CENTRAL SYSTEM_UNIT1;
+Actuator,Sizing:System,Main Cooling Volume Flow Rate,CENTRAL SYSTEM_UNIT1;
 Actuator,ExteriorLights,Electricity Rate,EXTERIOR-LIGHTS_UNIT1;
 Actuator,ExteriorLights,Electricity Rate,GARAGE-LIGHTS_UNIT1;
 Actuator,AirLoopHVAC:UnitaryHeatPump:AirToAir,Autosized Supply Air Flow Rate,HEAT PUMP_UNIT1;
@@ -470,10 +906,279 @@ Actuator,Outdoor Air System Node,Wetbulb Temperature,OUTSIDE AIR INLET NODE_UNIT
 Actuator,Outdoor Air System Node,Wind Speed,OUTSIDE AIR INLET NODE_UNIT1;
 Actuator,Outdoor Air System Node,Wind Direction,OUTSIDE AIR INLET NODE_UNIT1;
 Actuator,AirLoopHVAC,Availability Status,CENTRAL SYSTEM_UNIT1;
-
-(20, 40) = SCORES:  [63609558432.686226, 63609558432.686226]
-(20, 50) = SCORES:  [63604851353.11015, 63604851353.11015]
-(10, 40) = SCORES:  [32056367677.869415, 32056367677.869415]
-(10, 70) = SCORES:  [32053007024.01743, 32053007024.01743]
-(35, 40) = SCORES:  [877600963.4169606, 877600963.4169606]
-action.sample() -> SCORES:  [877600963.4169606, 877600963.4169606]
+**INTERNAL_VARIABLES**
+InternalVariable,Plant Design Volume Flow Rate,DHW LOOP_UNIT1
+InternalVariable,People Count Design Level,PEOPLE_UNIT1
+InternalVariable,Lighting Power Design Level,LIVING HARDWIRED LIGHTING1
+InternalVariable,Lighting Power Design Level,LIVING PLUG-IN LIGHTING1
+InternalVariable,Plug and Process Power Design Level,DISHWASHER1
+InternalVariable,Plug and Process Power Design Level,REFRIGERATOR1
+InternalVariable,Plug and Process Power Design Level,CLOTHESWASHER1
+InternalVariable,Plug and Process Power Design Level,ELECTRIC_DRYER1
+InternalVariable,Plug and Process Power Design Level,ELECTRIC_RANGE1
+InternalVariable,Plug and Process Power Design Level,TELEVISION1
+InternalVariable,Plug and Process Power Design Level,ELECTRIC_MELS1
+InternalVariable,Plug and Process Power Design Level,IECC_ADJ1
+InternalVariable,Zone Floor Area,LIVING_UNIT1
+InternalVariable,Zone Air Volume,LIVING_UNIT1
+InternalVariable,Zone Multiplier,LIVING_UNIT1
+InternalVariable,Zone List Multiplier,LIVING_UNIT1
+InternalVariable,Zone Floor Area,ATTIC_UNIT1
+InternalVariable,Zone Air Volume,ATTIC_UNIT1
+InternalVariable,Zone Multiplier,ATTIC_UNIT1
+InternalVariable,Zone List Multiplier,ATTIC_UNIT1
+InternalVariable,Fan Maximum Mass Flow Rate,SUPPLY FAN_UNIT1
+InternalVariable,Fan Nominal Pressure Rise,SUPPLY FAN_UNIT1
+InternalVariable,Fan Nominal Total Efficiency,SUPPLY FAN_UNIT1
+InternalVariable,Fan Maximum Mass Flow Rate,OASUPPLYFAN_UNIT1
+InternalVariable,Fan Nominal Pressure Rise,OASUPPLYFAN_UNIT1
+InternalVariable,Fan Nominal Total Efficiency,OASUPPLYFAN_UNIT1
+InternalVariable,Fan Maximum Mass Flow Rate,OAEXHAUSTFAN_UNIT1
+InternalVariable,Fan Nominal Pressure Rise,OAEXHAUSTFAN_UNIT1
+InternalVariable,Fan Nominal Total Efficiency,OAEXHAUSTFAN_UNIT1
+InternalVariable,Fan Maximum Mass Flow Rate,HEAT PUMP WATER HEATER FAN_UNIT1
+InternalVariable,Fan Nominal Pressure Rise,HEAT PUMP WATER HEATER FAN_UNIT1
+InternalVariable,Fan Nominal Total Efficiency,HEAT PUMP WATER HEATER FAN_UNIT1
+InternalVariable,Final Zone Design Heating Air Mass Flow Rate,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Heating Air Mass Flow Rate,LIVING_UNIT1
+InternalVariable,Final Zone Design Cooling Air Mass Flow Rate,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Cooling Air Mass Flow Rate,LIVING_UNIT1
+InternalVariable,Final Zone Design Heating Load,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Heating Load,LIVING_UNIT1
+InternalVariable,Final Zone Design Cooling Load,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Cooling Load,LIVING_UNIT1
+InternalVariable,Final Zone Design Heating Air Density,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Heating Air Density,LIVING_UNIT1
+InternalVariable,Final Zone Design Cooling Air Density,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Cooling Air Density,LIVING_UNIT1
+InternalVariable,Final Zone Design Heating Volume Flow,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Heating Volume Flow,LIVING_UNIT1
+InternalVariable,Final Zone Design Cooling Volume Flow,LIVING_UNIT1
+InternalVariable,Intermediate Zone Design Cooling Volume Flow,LIVING_UNIT1
+InternalVariable,Zone Outdoor Air Design Volume Flow Rate,LIVING_UNIT1
+InternalVariable,AirTerminal:SingleDuct:ConstantVolume:NoReheat Maximum Mass Flow Rate,ZONEDIRECTAIR_UNIT1
+InternalVariable,Intermediate Air System Main Supply Volume Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Intermediate Air System Coincident Peak Cooling Mass Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Intermediate Air System Coincident Peak Heating Mass Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Intermediate Air System Noncoincident Peak Cooling Mass Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Intermediate Air System Noncoincident Peak Heating Mass Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Intermediate Air System Heating Volume Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Intermediate Air System Cooling Volume Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Sensible Capacity,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Total Capacity,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Heating Design Sensible Capacity,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Preheating Design Sensible Capacity,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Outdoor Air Design Volume Flow Rate,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Mixed Air Temperature,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Mixed Air Humidity Ratio,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Return Air Temperature,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Return Air Humidity Ratio,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Outdoor Air Temperature,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Cooling Design Outdoor Air Humidity Ratio,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Heating Design Mixed Air Temperature,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Heating Design Mixed Air Humidity Ratio,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Heating Design Return Air Temperature,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Heating Design Return Air Humidity Ratio,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Heating Design Outdoor Air Temperature,CENTRAL SYSTEM_UNIT1
+InternalVariable,Air System Heating Design Outdoor Air Humidity Ratio,CENTRAL SYSTEM_UNIT1
+InternalVariable,Unitary HVAC Design Heating Capacity,HEAT PUMP_UNIT1
+InternalVariable,Unitary HVAC Design Cooling Capacity,HEAT PUMP_UNIT1
+InternalVariable,Pump Maximum Mass Flow Rate,MAINS PRESSURE_UNIT1
+**PLUGIN_GLOBAL_VARIABLES**
+**TRENDS**
+**METERS**
+OutputMeter,Electricity:Facility
+OutputMeter,Electricity:Building
+OutputMeter,Electricity:Zone:LIVING_UNIT1
+OutputMeter,Electricity:SpaceType:GENERAL
+OutputMeter,InteriorLights:Electricity
+OutputMeter,InteriorLights:Electricity:Zone:LIVING_UNIT1
+OutputMeter,InteriorLights:Electricity:SpaceType:GENERAL
+OutputMeter,General:InteriorLights:Electricity
+OutputMeter,General:InteriorLights:Electricity:Zone:LIVING_UNIT1
+OutputMeter,General:InteriorLights:Electricity:SpaceType:GENERAL
+OutputMeter,InteriorEquipment:Electricity
+OutputMeter,InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,dishwasher:InteriorEquipment:Electricity
+OutputMeter,dishwasher:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,dishwasher:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,refrigerator:InteriorEquipment:Electricity
+OutputMeter,refrigerator:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,refrigerator:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,clotheswasher:InteriorEquipment:Electricity
+OutputMeter,clotheswasher:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,clotheswasher:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,electric_dryer:InteriorEquipment:Electricity
+OutputMeter,electric_dryer:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,electric_dryer:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,electric_range:InteriorEquipment:Electricity
+OutputMeter,electric_range:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,electric_range:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,television:InteriorEquipment:Electricity
+OutputMeter,television:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,television:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,electric_mels:InteriorEquipment:Electricity
+OutputMeter,electric_mels:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,electric_mels:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,IECC_adj:InteriorEquipment:Electricity
+OutputMeter,IECC_adj:InteriorEquipment:Electricity:Zone:LIVING_UNIT1
+OutputMeter,IECC_adj:InteriorEquipment:Electricity:SpaceType:GENERAL
+OutputMeter,EnergyTransfer:Facility
+OutputMeter,EnergyTransfer:HVAC
+OutputMeter,CoolingCoils:EnergyTransfer
+OutputMeter,Electricity:HVAC
+OutputMeter,Cooling:Electricity
+OutputMeter,General:Cooling:Electricity
+OutputMeter,HeatingCoils:EnergyTransfer
+OutputMeter,Heating:Electricity
+OutputMeter,General:Heating:Electricity
+OutputMeter,Electricity:Plant
+OutputMeter,WaterSystems:Electricity
+OutputMeter,Fans:Electricity
+OutputMeter,General:Fans:Electricity
+OutputMeter,Ventilation:Fans:Electricity
+OutputMeter,Fans:Electricity:Zone:LIVING_UNIT1
+OutputMeter,Ventilation (simple):Fans:Electricity
+OutputMeter,Ventilation (simple):Fans:Electricity:Zone:LIVING_UNIT1
+OutputMeter,EnergyTransfer:Building
+OutputMeter,EnergyTransfer:Zone:LIVING_UNIT1
+OutputMeter,Heating:EnergyTransfer
+OutputMeter,Heating:EnergyTransfer:Zone:LIVING_UNIT1
+OutputMeter,General:Heating:EnergyTransfer
+OutputMeter,General:Heating:EnergyTransfer:Zone:LIVING_UNIT1
+OutputMeter,Cooling:EnergyTransfer
+OutputMeter,Cooling:EnergyTransfer:Zone:LIVING_UNIT1
+OutputMeter,General:Cooling:EnergyTransfer
+OutputMeter,General:Cooling:EnergyTransfer:Zone:LIVING_UNIT1
+OutputMeter,EnergyTransfer:Zone:ATTIC_UNIT1
+OutputMeter,Heating:EnergyTransfer:Zone:ATTIC_UNIT1
+OutputMeter,General:Heating:EnergyTransfer:Zone:ATTIC_UNIT1
+OutputMeter,Cooling:EnergyTransfer:Zone:ATTIC_UNIT1
+OutputMeter,General:Cooling:EnergyTransfer:Zone:ATTIC_UNIT1
+OutputMeter,PlantLoopHeatingDemand:Facility
+OutputMeter,PlantLoopHeatingDemand:Plant
+OutputMeter,WaterSystems:PlantLoopHeatingDemand
+OutputMeter,General:WaterSystems:PlantLoopHeatingDemand
+OutputMeter,ElectricityPurchased:Facility
+OutputMeter,ElectricityPurchased:Plant
+OutputMeter,Cogeneration:ElectricityPurchased
+OutputMeter,General:Cogeneration:ElectricityPurchased
+OutputMeter,ElectricitySurplusSold:Facility
+OutputMeter,ElectricitySurplusSold:Plant
+OutputMeter,Cogeneration:ElectricitySurplusSold
+OutputMeter,General:Cogeneration:ElectricitySurplusSold
+OutputMeter,ElectricityNet:Facility
+OutputMeter,ElectricityNet:Plant
+OutputMeter,Cogeneration:ElectricityNet
+OutputMeter,General:Cogeneration:ElectricityNet
+OutputMeter,HeatRecoveryForHeating:EnergyTransfer
+OutputMeter,HeatRecoveryForCooling:EnergyTransfer
+OutputMeter,HeatRecovery:Electricity
+OutputMeter,General:HeatRecovery:Electricity
+OutputMeter,ExteriorLights:Electricity
+OutputMeter,Exterior-Lights:ExteriorLights:Electricity
+OutputMeter,Garage-Lights:ExteriorLights:Electricity
+OutputMeter,Water:Facility
+OutputMeter,Water:Plant
+OutputMeter,WaterSystems:Water
+OutputMeter,Domestic Hot Water:WaterSystems:Water
+OutputMeter,MainsWater:Facility
+OutputMeter,MainsWater:Plant
+OutputMeter,WaterSystems:MainsWater
+OutputMeter,Domestic Hot Water:WaterSystems:MainsWater
+OutputMeter,EnergyTransfer:Plant
+OutputMeter,WaterSystems:EnergyTransfer
+OutputMeter,Domestic Hot Water:WaterSystems:EnergyTransfer
+OutputMeter,Water Heater:WaterSystems:PlantLoopHeatingDemand
+OutputMeter,Water Heater:WaterSystems:Electricity
+OutputMeter,Water Heater:WaterSystems:Water
+OutputMeter,Water Heater:WaterSystems:MainsWater
+OutputMeter,Water Heater Parasitic:WaterSystems:Electricity
+OutputMeter,Pumps:Electricity
+OutputMeter,General:Pumps:Electricity
+OutputMeter,Carbon Equivalent:Facility
+OutputMeter,CarbonEquivalentEmissions:Carbon Equivalent
+**VARIABLES**
+OutputVariable,Site Outdoor Air Drybulb Temperature,ENVIRONMENT
+OutputVariable,Lights Electricity Energy,LIVING HARDWIRED LIGHTING1
+OutputVariable,Lights Electricity Energy,LIVING PLUG-IN LIGHTING1
+OutputVariable,Electric Equipment Electricity Energy,DISHWASHER1
+OutputVariable,Electric Equipment Electricity Energy,REFRIGERATOR1
+OutputVariable,Electric Equipment Electricity Energy,CLOTHESWASHER1
+OutputVariable,Electric Equipment Electricity Energy,ELECTRIC_DRYER1
+OutputVariable,Electric Equipment Electricity Energy,ELECTRIC_RANGE1
+OutputVariable,Electric Equipment Electricity Energy,TELEVISION1
+OutputVariable,Electric Equipment Electricity Energy,ELECTRIC_MELS1
+OutputVariable,Electric Equipment Electricity Energy,IECC_ADJ1
+OutputVariable,Cooling Coil Total Cooling Rate,DX COOLING COIL_UNIT1
+OutputVariable,Cooling Coil Total Cooling Energy,DX COOLING COIL_UNIT1
+OutputVariable,Cooling Coil Electricity Energy,DX COOLING COIL_UNIT1
+OutputVariable,Heating Coil Heating Rate,MAIN DX HEATING COIL_UNIT1
+OutputVariable,Heating Coil Heating Energy,MAIN DX HEATING COIL_UNIT1
+OutputVariable,Heating Coil Electricity Energy,MAIN DX HEATING COIL_UNIT1
+OutputVariable,Heating Coil Defrost Electricity Energy,MAIN DX HEATING COIL_UNIT1
+OutputVariable,Heating Coil Crankcase Heater Electricity Energy,MAIN DX HEATING COIL_UNIT1
+OutputVariable,Cooling Coil Total Cooling Rate,HEAT PUMP WATER HEATER EVAPORATOR_UNIT1
+OutputVariable,Cooling Coil Total Cooling Energy,HEAT PUMP WATER HEATER EVAPORATOR_UNIT1
+OutputVariable,Cooling Coil Crankcase Heater Electricity Energy,HEAT PUMP WATER HEATER EVAPORATOR_UNIT1
+OutputVariable,Cooling Coil Water Heating Electricity Energy,HEAT PUMP WATER HEATER EVAPORATOR_UNIT1
+OutputVariable,Fan Electricity Energy,SUPPLY FAN_UNIT1
+OutputVariable,Fan Electricity Energy,OASUPPLYFAN_UNIT1
+OutputVariable,Fan Electricity Energy,OAEXHAUSTFAN_UNIT1
+OutputVariable,Fan Electricity Energy,HEAT PUMP WATER HEATER FAN_UNIT1
+OutputVariable,Zone Ventilation Fan Electricity Energy,LIVING_UNIT1
+OutputVariable,Zone Air Temperature,LIVING_UNIT1
+OutputVariable,Zone Air System Sensible Heating Energy,LIVING_UNIT1
+OutputVariable,Zone Air System Sensible Cooling Energy,LIVING_UNIT1
+OutputVariable,Zone Air Temperature,ATTIC_UNIT1
+OutputVariable,Zone Air System Sensible Heating Energy,ATTIC_UNIT1
+OutputVariable,Zone Air System Sensible Cooling Energy,ATTIC_UNIT1
+OutputVariable,Water Use Connections Plant Hot Water Energy,DHW SINKS_UNIT1
+OutputVariable,Water Use Connections Plant Hot Water Energy,DHW SHOWERS_UNIT1
+OutputVariable,Water Use Connections Plant Hot Water Energy,DHW CLOTHESWASHER_UNIT1
+OutputVariable,Water Use Connections Plant Hot Water Energy,DHW DISHWASHER_UNIT1
+OutputVariable,Water Use Connections Plant Hot Water Energy,DHW BATHS_UNIT1
+OutputVariable,Facility Total Purchased Electricity Energy,WHOLE BUILDING
+OutputVariable,Facility Total Surplus Electricity Energy,WHOLE BUILDING
+OutputVariable,Facility Net Purchased Electricity Energy,WHOLE BUILDING
+OutputVariable,Heat Exchanger Total Heating Energy,OA_HEAT_RECOVERY_UNIT1
+OutputVariable,Heat Exchanger Total Cooling Energy,OA_HEAT_RECOVERY_UNIT1
+OutputVariable,Heat Exchanger Electricity Energy,OA_HEAT_RECOVERY_UNIT1
+OutputVariable,Exterior Lights Electricity Energy,EXTERIOR-LIGHTS_UNIT1
+OutputVariable,Exterior Lights Electricity Energy,GARAGE-LIGHTS_UNIT1
+OutputVariable,Heating Coil Heating Energy,SUPP HEATING COIL_UNIT1
+OutputVariable,Heating Coil Heating Rate,SUPP HEATING COIL_UNIT1
+OutputVariable,Heating Coil Electricity Energy,SUPP HEATING COIL_UNIT1
+OutputVariable,Water Use Equipment Total Volume,CLOTHES WASHER_UNIT1
+OutputVariable,Water Use Equipment Mains Water Volume,CLOTHES WASHER_UNIT1
+OutputVariable,Water Use Equipment Heating Energy,CLOTHES WASHER_UNIT1
+OutputVariable,Water Use Equipment Total Volume,DISHWASHER_UNIT1
+OutputVariable,Water Use Equipment Mains Water Volume,DISHWASHER_UNIT1
+OutputVariable,Water Use Equipment Heating Energy,DISHWASHER_UNIT1
+OutputVariable,Water Use Equipment Total Volume,SINKS_UNIT1
+OutputVariable,Water Use Equipment Mains Water Volume,SINKS_UNIT1
+OutputVariable,Water Use Equipment Heating Energy,SINKS_UNIT1
+OutputVariable,Water Use Equipment Total Volume,SHOWERS_UNIT1
+OutputVariable,Water Use Equipment Mains Water Volume,SHOWERS_UNIT1
+OutputVariable,Water Use Equipment Heating Energy,SHOWERS_UNIT1
+OutputVariable,Water Use Equipment Total Volume,BATHS_UNIT1
+OutputVariable,Water Use Equipment Mains Water Volume,BATHS_UNIT1
+OutputVariable,Water Use Equipment Heating Energy,BATHS_UNIT1
+OutputVariable,Water Heater Source Side Heat Transfer Energy,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater Heating Rate,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater Heating Energy,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater Electricity Energy,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater Off Cycle Parasitic Electricity Energy,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater On Cycle Parasitic Electricity Energy,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater Water Volume,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater Mains Water Volume,WATER HEATER_TANK_UNIT1
+OutputVariable,Water Heater Off Cycle Ancillary Electricity Energy,WATER HEATER_UNIT1
+OutputVariable,Water Heater On Cycle Ancillary Electricity Energy,WATER HEATER_UNIT1
+OutputVariable,Pump Electricity Energy,MAINS PRESSURE_UNIT1
+OutputVariable,Environmental Impact Total N2O Emissions Carbon Equivalent Mass,SITE
+OutputVariable,Environmental Impact Total CH4 Emissions Carbon Equivalent Mass,SITE
+OutputVariable,Environmental Impact Total CO2 Emissions Carbon Equivalent Mass,SITE
+OutputVariable,Air System Cooling Coil Total Cooling Energy,CENTRAL SYSTEM_UNIT1
+OutputVariable,Air System Heating Coil Total Heating Energy,CENTRAL SYSTEM_UNIT1
+OutputVariable,Air System Fan Electricity Energy,CENTRAL SYSTEM_UNIT1

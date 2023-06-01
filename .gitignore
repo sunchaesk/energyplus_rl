@@ -2,3 +2,6 @@ __pycache__
 model/
 output/
 logs/
+./agent/model
+./agent/logs
+./agent/output

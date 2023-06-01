@@ -22,13 +22,38 @@ from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 
+'''
+0 -TH ACTION VALUE: -80330270668.17052
+1 -TH ACTION VALUE: -79741665082.9226
+2 -TH ACTION VALUE: -79194870611.75945
+3 -TH ACTION VALUE: -78658119926.9327
+4 -TH ACTION VALUE: -78123605697.18463
+5 -TH ACTION VALUE: -77603097344.10558
+6 -TH ACTION VALUE: -77088116657.93875
+7 -TH ACTION VALUE: -76575868086.57722
+8 -TH ACTION VALUE: -76070032715.13345
+9 -TH ACTION VALUE: -75559609303.27484
+10 -TH ACTION VALUE: -75052133972.88834
+11 -TH ACTION VALUE: -74568785819.23244
+12 -TH ACTION VALUE: -74070011217.51329
+13 -TH ACTION VALUE: -73584745374.28305
+14 -TH ACTION VALUE: -73093079619.46715
+15 -TH ACTION VALUE: -72617408338.65147
+16 -TH ACTION VALUE: -72144055355.22818
+17 -TH ACTION VALUE: -71659262236.06543
+18 -TH ACTION VALUE: -71181891828.90132
+19 -TH ACTION VALUE: -70713618641.46324
+'''
+
+# NOTE: tensorboard stuff
 logdir = os.path.join(
     './logs/', 'agent_dqn',
     datetime.now().strftime("%Y%m%d-%H%M%S")
 )
 print(f"Saving training logs to:{logdir}")
 writer = tf.summary.create_file_writer(logdir)
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
+# tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
+# # tf.debugging.experimental.enable_dump_debug_info(logdir, tensor_debug_mode="FULL_HEALTH", circular_buffer_size=-1)
 
 class ReplayBuffer:
     def __init__(self, capacity=1200, batch_size=256):
@@ -114,6 +139,7 @@ class Agent:
             self.model.train(states, targets)
 
     def train(self, max_episodes=500, save_fname='save'):
+        tf.profiler.experimental.start('logs')
         step_cnt = 0
         with writer.as_default(): # Tensorboard logging
             for ep in range(max_episodes):
@@ -123,7 +149,7 @@ class Agent:
                     action = self.model.get_action(observation)
                     # next_observation, reward, done, _ = self.env.step(action)
                     next_observation, reward, done, _, _ = self.env.step(action)
-                    print('STEP:', step_cnt, 'EPS:', self.model.epsilon)
+                    print('REWARD', reward, 'STEP:', step_cnt, 'EPS:', self.model.epsilon)
                     # print(type(next_observation))
                     if not isinstance(next_observation, np.ndarray):
                         done = False
@@ -142,6 +168,7 @@ class Agent:
                         print('############\n\n')
                         print('MODEL SAVED AS: ./model/save.h5\n\n')
                         print('############')
+                        tf.profiler.experimental.stop()
                         return
 
 
@@ -152,10 +179,10 @@ class Agent:
                     observation = next_observation
                 if self.buffer.size() >= self.buffer.batch_size:
                     self.replay_experience()
-                self.update_target()
-                print(f"Episode#{ep} Reward:{episode_reward}")
-                tf.summary.scalar("episode_reward", episode_reward, step=ep)
-                writer.flush()
+                    self.update_target()
+                    print(f"Episode#{ep} Reward:{episode_reward}")
+                    tf.summary.scalar("episode_reward", episode_reward, step=ep)
+                    writer.flush()
 
 
 default_args = {'idf': '../in.idf',
@@ -230,6 +257,33 @@ def testing_full(action_space_n):
     action_n_scores.append(model_score)
     return action_n_scores
 
+def testing_static_only(action_space_n):
+    action_n_scores = []
+    for i in range(action_space_n):
+        action_n_scores.append(test_model_static_action(i))
+
+    for i in range(len(action_n_scores)):
+        print(i, '-TH ACTION VALUE:', action_n_scores[i])
+
+    return action_n_scores
+
+def generate_graph():
+
+    with open('saved_scores.csv','r') as scores:
+        scores_list = scores.read()
+        scores_list.replace('\n', '').replace('-','')
+        scores_list = scores_list.split(',')
+        scores_list = [float(x) for x in scores_list]
+    np_scores_array = np.asarray(scores_list)
+    np_names_array = np.array(['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','model'])
+
+    plt.bar(np_names_array, np_scores_array)
+    plt.yscale('log')
+    plt.ylabel('Energy Consumption (J)')
+    plt.xlabel('Thermostat control')
+    plt.show()
+    # scores_list = list(np_scores_array)
+
 def main():
     env = base.EnergyPlusEnv(default_args)
     agent = Agent(env)
@@ -237,10 +291,18 @@ def main():
 
 
 if __name__ == "__main__":
+    # NOTE: generating static energy consumption values
+    # env = base.EnergyPlusEnv(default_args)
+    # scores = testing_static_only(env.action_space.n)
+    # output_string = ','.join(scores)
+    # with open('static_scores.csv', 'w+') as output_file:
+    #     output_file.write(output_string)
+
    # main()
-   env = base.EnergyPlusEnv(default_args)
-   testing_full(env.action_space.n)
-   # test_load_model()
+   # env = base.EnergyPlusEnv(default_args)
+   # testing_full(env.action_space.n)
+   # score = test_load_model()
+   generate_graph()
 
     # NOTE: Profiling Stuff
     # cProfile.run('main()', 'restats')
