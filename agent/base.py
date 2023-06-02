@@ -210,7 +210,9 @@ class EnergyPlusRunner:
             # 'sky_diffuse_solar_ldb2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
             # NOTE: since they are same reduce the # of varialbes to:
             'sky_diffuse_solar_ldf': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
-            'sky_diffuse_solar_ldb': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldb_1.unit1'),
+            #'sky_diffuse_solar_ldb': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldb_1.unit1'),
+            'sky_diffuse_solar_sdr': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
+            #'sky_diffuse_solar_sdl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
 
             # Ground Diffuse Solar Radiation [W/m^2]
             # NOTE value of ldf1 == ldf2 == ldb1 == ldb2
@@ -219,10 +221,14 @@ class EnergyPlusRunner:
             # 'ground_diffuse_solar_ldb1': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
             # 'ground_diffuse_solar_ldb2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
             # NOTE: they all yield same value so narrow them to single var:
-            'ground_diffuse_solar': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
+            # 'ground_diffuse_solar': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
+            # 'ground_diffuse_solar_2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
+            # 'ground_diffuse_solar_3': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
 
             'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment"),
-            'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment")
+            'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment"),
+
+            #'test_ldl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldl_1.unit1'),
             # 'diffuse_solar_ldf2': ("", ""),
             # 'diffuse_solar_ldb1': ("", ""),
             # 'diffuse_solar_ldb2': ("", "")
