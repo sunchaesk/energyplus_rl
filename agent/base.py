@@ -21,15 +21,25 @@ from pyenergyplus.api import EnergyPlusAPI
 from pyenergyplus.datatransfer import DataExchange
 
 '''
+
+TODO ask
+- diffuse solar radiation, wall or window?
+
+TODO Testing Stuff:
+- action values
+- observation stuff
+
 CURR TODO/DONE for this week:
 1. fix the runtime
 ----- Problem with starting time, sometimes just skipped?
 [X] fix action_space DONE
-3. figure out the obs NOW
-4. combine the same type of obs to a single variable
+[X]. figure out the obs NOW
+[X]. combine the same type of obs to a single variable
 [X] calculate PMV, maybe use in the future for multi objective reinforcement learning
 [X]. DONE determine heating
-
+[X] send observations for thermal comfort reward calculation
+[?] TODO: find how to fetch air velocity for PMV/PPD calculation
+[  ] TODO: upload energyplus and start porting to google colab Yay
 '''
 
 '''
@@ -107,6 +117,8 @@ def parse_args() -> argparse.Namespace:
 #zone mean air temperature
 # mean radiant temperature
 # relative humidity
+# radiant
+# diffuse
 
 class EnergyPlusRunner:
 
@@ -153,11 +165,16 @@ class EnergyPlusRunner:
             # %, air relative humidity after the correct step for each zone
             "relavite_humidity_living": ("Zone Air Relative Humidity", "living_unit1"),
 
-            # Solar Radiation
-            "solar_radiation_ldf1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldf_1.unit1"),
-            "solar_radiation_ldf2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldf_2.unit1"),
-            "solar_radiation_ldb1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldb_1.unit1"),
-            "solar_radiation_ldb2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldb_2.unit1"),
+            # m/s air velocity
+            # "air_velocity_living": ("", ""),
+
+            #  Diffuse Radiation [W]
+            #'interior_diffuse_radiation_living' : ('Zone Interior Windows Total Transmitted Diffuse Solar Radiation Rate', 'living_unit1'), #NOTE, interior window is not present in the model
+            #########'exterior_diffuse_radiation_living' : ('Zone Exterior Windows Total Transmitted Diffuse Solar Radiation Rate', 'living_unit1'),
+            # "solar_radiation_ldf1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldf_1.unit1"),
+            # "solar_radiation_ldf2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldf_2.unit1"),
+            # "solar_radiation_ldb1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldb_1.unit1"),
+            # "solar_radiation_ldb2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldb_2.unit1"),
 
             # "solar_radiation_ldf1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Window_ldf_1.unit1"),
             # "solar_radiation_ldf2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Window_ldf_2.unit1"),
@@ -169,34 +186,47 @@ class EnergyPlusRunner:
             # "solar_radiation_ldl1": ("Surface Inside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldl_1.unit1"),
             # "solar_radiation_ldl2": ("Surface Inside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldl_2.unit1"),
 
-            # Beam Radiation
-            "test_ldf1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldf_1.unit1"),
-            "test_ldf2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
-            "test_ldb1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
-            "test_ldb2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
-            "beam_radiation_ldf1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldf_1.unit1"),
-            "beam_radiation_ldf2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldf_2.unit1"),
-            "beam_radiation_ldb1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldb_1.unit1"),
-            "beam_radiation_ldb2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldb_2.unit1"),
-            # "beam_radiation_ldr1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldr_1.unit1"),
-            # "beam_radiation_ldr2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldr_2.unit1"),
-            # "beam_radiation_ldl1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldl_1.unit1"),
-            # "beam_radiation_ldl2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldl_2.unit1"),
+            # Beam Radiation [W]
+            #'interior_beam_radiation_living': ('Zone Interior Windows Total Transmitted Beam Solar Radiation Rate', 'living_unit1'), # NOTE, interior window not present
+            #####'exterior_beam_radiation_living': ('Zone Exterior Windows Total Transmitted Beam Solar Radiation Rate', 'living_unit1')
+            # "test_ldf1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldf_1.unit1"),
+            # "test_ldf2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
+            # "test_ldb1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
+            # "test_ldb2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
+            # "beam_radiation_ldf1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldf_1.unit1"),
+            # "beam_radiation_ldf2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldf_2.unit1"),
+            # "beam_radiation_ldb1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldb_1.unit1"),
+            # "beam_radiation_ldb2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldb_2.unit1"),
 
-            # Diffuse Radiation
-            #"diffuse_radiation_living": ("")
+            # Direct Solar Radiation Rate per Area [W/m^2]
+            # Diffuse Solar Radiation Rate per Area [W/m^2]
 
-            #'test': ('test', 'test')
-            # # °C
-            # "oat": ("Site Outdoor Air DryBulb Temperature", "Environment"),
-            # # °C
-            # "iat": ("Zone Mean Air Temperature", "TZ_Amphitheater"),
-            # # ppm
-            # "co2": ("Zone Air CO2 Concentration", "TZ_Amphitheater"),
-            # # heating setpoint (°C)
-            # "htg_spt": ("Schedule Value", "HTG HVAC 1 ADJUSTED BY 1.1 F"),
-            # # cooling setpoint (°C)
-            # "clg_spt": ("Schedule Value", "CLG HVAC 1 ADJUSTED BY 0 F"),
+            # Sky Diffuse Solar Radiation [W/m^2]
+            # NOTE value of ldf1 == value of ldf2
+            # NOTE value of ldb1 == value of ldb2
+            # 'sky_diffuse_solar_ldf1': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldf_1.unit1"),
+            # 'sky_diffuse_solar_ldf2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
+            # 'sky_diffuse_solar_ldb1': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
+            # 'sky_diffuse_solar_ldb2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
+            # NOTE: since they are same reduce the # of varialbes to:
+            'sky_diffuse_solar_ldf': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
+            'sky_diffuse_solar_ldb': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldb_1.unit1'),
+
+            # Ground Diffuse Solar Radiation [W/m^2]
+            # NOTE value of ldf1 == ldf2 == ldb1 == ldb2
+            # 'ground_diffuse_solar_ldf1': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldf_1.unit1"),
+            # 'ground_diffuse_solar_ldf2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
+            # 'ground_diffuse_solar_ldb1': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
+            # 'ground_diffuse_solar_ldb2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
+            # NOTE: they all yield same value so narrow them to single var:
+            'ground_diffuse_solar': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
+
+            'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment"),
+            'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment")
+            # 'diffuse_solar_ldf2': ("", ""),
+            # 'diffuse_solar_ldb1': ("", ""),
+            # 'diffuse_solar_ldb2': ("", "")
+            # Horizontal Infrared Radiation Rate per Area [W/m^2]
         }
         self.var_handles: Dict[str, int] = {}
 
@@ -309,6 +339,8 @@ class EnergyPlusRunner:
         eplus_args = ["-r"] if self.env_config.get("csv", False) else []
         eplus_args += ['-x']
         # eplus_args += ['-a'] # NOTE: enforces simulation to be annual (runtime start = Jan1)
+
+        eplus_args += ["-a"] if self.env_config.get('annual', False) else []
         eplus_args += [
             "-w",
             self.env_config["epw"],
@@ -486,14 +518,14 @@ class EnergyPlusEnv(gym.Env):
         self.timestep = 0
 
         # observation space:
-        # outdoor_temp, indoor_temp_living, indoor_temp_attic, date
+        # outdoor_temp, indoor_temp_living, mean_radiant_temperature_living, relative_humidity_living, exterior_diffuse_radiation_living, exterior_beam_radiation_living
         # NOTE: I am unsure about the actual bound -> set as larger than expected values
         # TODO update this stuff
         low_obs = np.array(
-            [-100.0, -100.0, -100.0]
+            [-100.0, -100.0, -100.0, 0, 0, 0]
         )
         hig_obs = np.array(
-            [100.0, 100.0, 100.0]
+            [100.0, 100.0, 100.0, 100.0, 100000000.0, 100000000.0]
         )
         self.observation_space = gym.spaces.Box(
             low=low_obs, high=hig_obs, dtype=np.float64
@@ -639,7 +671,12 @@ class EnergyPlusEnv(gym.Env):
         # compute energy reward
         reward_energy = self._compute_reward_energy(meter)
         # compute thermal comfort reward
-        thermal_comfort = self._compute_reward_thermal_comfort(25, 25, 0.1, 50)
+        thermal_comfort = self._compute_reward_thermal_comfort(
+            obs_vec[1],
+            obs_vec[2],
+            0.1, #NOTE: for now set as 0.1, but find if E+ can generate specific values
+            obs_vec[3]
+        )
         # print('THERMAL COMFORT:', thermal_comfort)
 
         #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
@@ -652,10 +689,10 @@ class EnergyPlusEnv(gym.Env):
     def _compute_reward_thermal_comfort(tdb, tr, v, rh) -> float:
         '''
         @params
-        tdb
-        tr
-        v: used to calculate v_relative
-        rh
+        tdb: dry bulb air temperature
+        tr: mean radiant temperature
+        v: used to calculate v_relative: air velocity
+        rh: relative humidity
         met: set as a constant value of 1.4
         clo: set as a constant value of 0.5
         -> clo_relative is pre-computed ->
@@ -811,24 +848,6 @@ class EnergyPlusEnv(gym.Env):
         action_cooling_actuator_vals = np.linspace(15,30,151)
         return action_cooling_actuator_vals[n]
 
-        # def _rescale(
-        #     n: int,
-        #     range1: Tuple[float, float],
-        #     range2: Tuple[float, float]
-        # ) -> float:
-        #     delta1 = range1[1] - range1[0]
-        #     delta2 = range2[1] - range2[0]
-        #     return (delta2 * (n - range1[0]) / delta1) + range2[0]
-
-#####################################################
-#################          RL STUFF (DQN)     #######
-#####################################################
-
-
-#####################################################
-#################      RL STUFF (DQN) end     #######
-#####################################################
-
 
 
 # NOTE: have to give in -x flag
@@ -845,7 +864,8 @@ default_args = {'idf': '../in.idf',
                 'csv': True,
                 'output': './output',
                 'timesteps': 1000000.0,
-                'num_workers': 2
+                'num_workers': 2,
+                'annual': True
                 }
 # SCORES:  [81884676878.09312, 81884676878.09312]
 #
@@ -866,7 +886,7 @@ if __name__ == "__main__":
             #action = env.action_space.sample()
             #action = 22.0
             ret = n_state, reward, done, info, _ = env.step(env.action_space.sample())
-            #print('THIS BE OBS?:', n_state)
+            print('THIS BE OBS?:', n_state)
             #print('RET STUFF:', ret)
             score+=reward
             #print('Episode:{} Reward:{} Score:{}'.format(episode, reward, score))

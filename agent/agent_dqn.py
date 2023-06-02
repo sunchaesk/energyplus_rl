@@ -190,7 +190,8 @@ default_args = {'idf': '../in.idf',
                 'csv': True,
                 'output': './output',
                 'timesteps': 1000000.0,
-                'num_workers': 2
+                'num_workers': 2,
+                'annual': False
                 }
 
 def test_load_model(save_fname='save') -> int:
