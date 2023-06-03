@@ -14,7 +14,7 @@ import random
 
 import gymnasium as gym
 import numpy as np
-from gymnasium.spaces import Discrete
+from gymnasium.spaces import Discrete, Box
 
 sys.path.insert(0, '/home/ck/Downloads/EnergyPlus-23.1.0-87ed9199d4-Linux-CentOS7.9.2009-x86_64/')
 from pyenergyplus.api import EnergyPlusAPI
@@ -30,34 +30,6 @@ TODO Testing Stuff:
 - observation stuff
 
 CURR TODO/DONE for this week:
-1. fix the runtime
------ Problem with starting time, sometimes just skipped?
-[X] fix action_space DONE
-[X]. figure out the obs NOW
-[X]. combine the same type of obs to a single variable
-[X] calculate PMV, maybe use in the future for multi objective reinforcement learning
-[X]. DONE determine heating
-[X] send observations for thermal comfort reward calculation
-[?] TODO: find how to fetch air velocity for PMV/PPD calculation
-[  ] TODO: upload energyplus and start porting to google colab Yay
-'''
-
-'''
-NOTE:
-- variables:
-    - outdoor_temp
-    - indoor_temp_living
-    - indoor_temp_attic
-- meter:
-    - elec (Electricity:HVAC)
-- actuators:
-    - sat_spt: system temperature node setpoint
-'''
-
-'''
-NOTE: mechanics of dual setpoint temperature control
-- higher setpoint is associated with
-- lower setpoint is associated with heating
 '''
 
 def parse_args() -> argparse.Namespace:
@@ -102,12 +74,6 @@ def parse_args() -> argparse.Namespace:
         default="PPO",
         choices=["APEX", "DQN", "IMPALA", "PPO", "R2D2"],
         help="The algorithm to use",
-    )
-    parser.add_argument(
-        "--framework",
-        choices=["tf", "tf2", "tfe", "torch"],
-        default="tf",
-        help="The deep learning framework specifier",
     )
 
     built_args = parser.parse_args()
@@ -412,9 +378,7 @@ class EnergyPlusRunner:
         if self.act_queue.empty():
             return
         next_action = self.act_queue.get()
-        assert isinstance(next_action, float)
-        # assert isinstance(next_action[0], float)
-        # assert isinstance(next_action[1], float)
+        assert isinstance(next_action, float) or isinstance(next_action, np.float32) # for Box action space, next_action dtype will be float32
 
         #print(next_action)
         # self.x.set_actuator_value(
@@ -425,7 +389,7 @@ class EnergyPlusRunner:
         self.x.set_actuator_value(
             state=state_argument,
             actuator_handle=self.actuator_handles['cooling_actuator_living'],
-            actuator_value=20
+            actuator_value=next_action
             # actuator_value=40.0
         )
         self.x.set_actuator_value(
@@ -522,16 +486,20 @@ class EnergyPlusEnv(gym.Env):
         self.env_config = env_config
         self.episode = -1
         self.timestep = 0
+        # self.start_date = env_config['start_date']
+        # self.end_date = env_config['end_date']
+        self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
+        self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
         # observation space:
         # outdoor_temp, indoor_temp_living, mean_radiant_temperature_living, relative_humidity_living, exterior_diffuse_radiation_living, exterior_beam_radiation_living
         # NOTE: I am unsure about the actual bound -> set as larger than expected values
         # TODO update this stuff
         low_obs = np.array(
-            [-100.0, -100.0, -100.0, 0, 0, 0]
+            [-100.0, -100.0, -100.0, 0, 0, 0, 0, 0]
         )
         hig_obs = np.array(
-            [100.0, 100.0, 100.0, 100.0, 100000000.0, 100000000.0]
+            [100.0, 100.0, 100.0, 100.0, 100000000.0, 100000000.0, 100000000.0, 100000000.0]
         )
         self.observation_space = gym.spaces.Box(
             low=low_obs, high=hig_obs, dtype=np.float64
@@ -542,7 +510,7 @@ class EnergyPlusEnv(gym.Env):
         self.prev_obs = None
 
         # action space: np.linspace(15,30,0.1)
-        self.action_space: Discrete = Discrete(150)
+        self.action_space: Box = Box(np.array([15]), np.array([27]), dtype=np.float32)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.meter_queue: Optional[Queue] = None
@@ -593,27 +561,13 @@ class EnergyPlusEnv(gym.Env):
     #return np.array(list(obs.values())), np.array(list(meter.values())) #
 
     def step(self, action):
+        '''
+        @params: action -> numpy.ndarray w/ 1 element
+        '''
         # simulation time values
-        current_time = self.energyplus_runner.x.current_sim_time(self.energyplus_runner.energyplus_state)
+        #current_time = self.energyplus_runner.x.current_sim_time(self.energyplus_runner.energyplus_state)
         # current_date = self.energyplus_runner.x.day_of_month()
         # current_month = self.energyplus_runner.x.day_of_year()
-        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
-        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
-        # print('DATE:', month, day)
-        # if month < 6:
-            # self.energyplus_runner.x.set_actuator_value(
-            #     self.energyplus_runner.energyplus_state,
-            #     actuator_handle=self.energyplus_runner.actuator_handles['cooling_actuator_living'],
-            #     actuator_value=100
-            # )
-            # self.energyplus_runner.x.set_actuator_value(
-            #     self.energyplus_runner.energyplus_state,
-            #     actuator_handle=self.energyplus_runner.actuator_handles['heating_actuator_living'],
-            #     actuator_value=-100
-            # )
-            # return None, 0, None, None, None
-
-
         self.timestep += 1
         done = False
 
@@ -628,15 +582,8 @@ class EnergyPlusEnv(gym.Env):
         #     range1=(0, self.action_space.n),
         #     range2=(15, 30)
         # )
-        sat_spt_value = self._rescale(int(action)) # maybe need int(action)
-
-
-
-        # set the system temperature actuator value to sat_spt_value
-
-        # api.exchange.set_actuator_value(state, outdoor_dew_point_actuator , 10000)
-        # self.
-
+        #sat_spt_value = self._rescale(int(action)) # maybe need int(action)
+        sat_spt_value = action[0]
 
         # enqueue action (received by EnergyPlus through dedicated callback)
         # then wait to get next observation.
@@ -663,17 +610,6 @@ class EnergyPlusEnv(gym.Env):
             print('########')
             return None, 0, None, None, None
 
-
-        #print('ACTION_Q: ', self.act_queue)
-
-        # this won't always work (reason for queue timeout), as simulation
-        # sometimes ends with last reported progress at 99%.
-        # NOTE: changed this to 99
-        #print("PROGRESS: ", self.energyplus_runner.progress_value)
-        if self.energyplus_runner.progress_value == 99:
-            print("reached end of simulation")
-            done = True
-
         # compute energy reward
         reward_energy = self._compute_reward_energy(meter)
         # compute thermal comfort reward
@@ -683,12 +619,39 @@ class EnergyPlusEnv(gym.Env):
             0.1, #NOTE: for now set as 0.1, but find if E+ can generate specific values
             obs_vec[3]
         )
+
+        ####
+        #### MANUAL RUNTIME MANIPULATION
+        ####
+        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
+        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+
+        # NOTE: -a flag is required therefore, manually alter the runtime
+        #print('DATE', month, day)
+        curr_date = datetime(2000, month, day)
+        if curr_date < self.start_date:
+            # if before simulation start date -> return 0 as reward
+            return obs_vec, 0, False, False, {'date': (month, day)}
+        if curr_date > self.end_date:
+            # if past simulation end date -> done = True
+            return obs_vec, reward_energy, True, False, {'date': (month, day)}
+
+
+        # this won't always work (reason for queue timeout), as simulation
+        # sometimes ends with last reported progress at 99%.
+        # NOTE: changed this to 99
+        #print("PROGRESS: ", self.energyplus_runner.progress_value)
+        if self.energyplus_runner.progress_value == 99:
+            print("reached end of simulation")
+            done = True
+
         # print('THERMAL COMFORT:', thermal_comfort)
 
         #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
-        return obs_vec, reward_energy, done, False, {}
+        return obs_vec, reward_energy, done, False, {'date': (month, day)}
 
     def render(self, mode="human"):
+        # TODO? : maybe add IDF visualization option
         pass
 
     @staticmethod
@@ -828,7 +791,7 @@ class EnergyPlusEnv(gym.Env):
         #
         clo_dynamic = 0.443 # precomputed with the clo value of 0.5 (clo_dynamic(0.5, 1.4))
         v_rel = v_relative(v, 1.4)
-        print('V_REL', v_rel)
+        #print('V_REL', v_rel)
         pmv = pmv_ppd_optimized(tdb, tr, v_rel, rh, 1.4, clo_dynamic, 0)
         # now calc and return ppd
         return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
@@ -871,7 +834,9 @@ default_args = {'idf': '../in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2,
-                'annual': True
+                'annual': True,# for some reasons if not annual, funky results
+                'start_date': (6,21),
+                'end_date': (8,21)
                 }
 # SCORES:  [81884676878.09312, 81884676878.09312]
 #
@@ -891,8 +856,10 @@ if __name__ == "__main__":
             #env.render()
             #action = env.action_space.sample()
             #action = 22.0
-            ret = n_state, reward, done, info, _ = env.step(env.action_space.sample())
-            print('THIS BE OBS?:', n_state)
+            action = env.action_space.sample()
+            ret = n_state, reward, done, truncated, info = env.step(action)
+            print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
+            #print('OBS', n_state)
             #print('RET STUFF:', ret)
             score+=reward
             #print('Episode:{} Reward:{} Score:{}'.format(episode, reward, score))
