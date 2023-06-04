@@ -1,5 +1,5 @@
 
-import base
+import base_discrete as base
 
 import argparse
 from datetime import datetime
@@ -184,7 +184,7 @@ class Agent:
                     tf.summary.scalar("episode_reward", episode_reward, step=ep)
                     writer.flush()
 
-
+# NOTE: this default_args is outdated
 default_args = {'idf': '../in.idf',
                 'epw': '../weather.epw',
                 'csv': True,

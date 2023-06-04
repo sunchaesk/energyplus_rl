@@ -1,8 +1,7 @@
-
-import base_cont as base
-
+import argparse
 import gym
 import numpy as np
+from itertools import count
 from collections import namedtuple
 
 import torch
@@ -14,17 +13,35 @@ from torch.utils.tensorboard import SummaryWriter
 
 writer = SummaryWriter()
 
+# Cart Pole
+
+parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
+parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
+                    help='discount factor (default: 0.99)')
+parser.add_argument('--seed', type=int, default=543, metavar='N',
+                    help='random seed (default: 543)')
+parser.add_argument('--render', action='store_true',
+                    help='render the environment')
+parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+                    help='interval between training status logs (default: 10)')
+args = parser.parse_args()
+
+
+env = gym.make('CartPole-v1')
+env.reset(seed=args.seed)
+torch.manual_seed(args.seed)
+
+
 SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
+
 
 class Policy(nn.Module):
     """
     implements both actor and critic in one model
     """
-    def __init__(self, env):
+    def __init__(self):
         super(Policy, self).__init__()
-        self.env = env
-        self.obs_space = env.observation_space.shape[0]
-        self.affine1 = nn.Linear(self.obs_space, 128)
+        self.affine1 = nn.Linear(4, 128)
 
         # actor's layer
         self.action_head = nn.Linear(128, 2)
@@ -65,9 +82,7 @@ class ActorCritic():
         self.gamma = 0.99
         self.eps = np.finfo(np.float32).eps.item()
 
-        self.save_freq = 10 # num of episodes for saving
-
-        self.model = Policy(env)
+        self.model = Policy()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
     def select_action(self, state):
@@ -117,63 +132,91 @@ class ActorCritic():
         # reset
         del self.model.rewards[:]
         del self.model.saved_actions[:]
-        # return loss for tensorboard logging
-        return loss
 
-    def train(self,max_episodes=500):
+    def train(max_episodes=500):
+        running_reward = 10
         step_cnt = 0
         for ep in range(max_episodes):
-            if ep % self.save_freq == 0:
-                torch.save(self.model, './model')
             done = False
             episode_reward = 0
             observation = self.env.reset()
-            reward = 0
-            info = {}
             while not done:
                 # get action
-                if self.env.b_during_sim():
-                    # if during sim NN to select action
-                    action = self.select_action(observation)
-                else:
-                    # if not during sim, random sample, important that NN is not triggered
-                    action = self.env.action_space.sample()[0]
+                action = self.select_action(state)
                 # take the action
-                observation, reward, done, truncated, info = self.env.step(action)
-                if reward == 0:
-                    print('Cont... Date:', info.get('date', None))
-                    continue
-                #
+                state, reward, done, _ = env.step(action)
+
                 self.model.rewards.append(reward)
                 episode_reward += reward
                 if done:
-                    loss = self.finish_episode()
-                    writer.add_scalar('Loss/Train', loss, ep)
-                    writer.add_scalar('EP-Reward/Train', episode_reward, ep)
-                    print('Episode {}\tLast reward: {:.2f}\t'.format(
-                        ep, episode_reward)
-                    )
-                    print('Simulation Ended... Starting new simulation')
                     break
 
+            running_reward = 0.05 * episode_reward + (1 - 0.05) * running_reward
+            self.finish_episode()
 
-default_args = {'idf': '../in.idf',
-                'epw': '../weather.epw',
-                'csv': True,
-                'output': './output',
-                'timesteps': 1000000.0,
-                'num_workers': 2,
-                'annual': True,# for some reasons if not annual, funky results
-                'start_date': (6,21),
-                'end_date': (8,21)
-                }
+            if ep % 10 == 0:
+                print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
+                    ep, episode_reward, running_reward))
+
+        # check if we have "solved" the cart pole problem
+            if running_reward > env.spec.reward_threshold:
+                print("Solved! Running reward is now {} and "
+                      "the last episode runs to {} time steps!".format(running_reward, t))
+                break
+
+
+
+
+
 
 def main():
-    env = base.EnergyPlusEnv(default_args)
-    agent = ActorCritic(env,
-                        env.observation_space.shape[0],
-                        env.action_space)
-    agent.train(500)
+    env = gym.make('CartPole-v1')
+    env.reset()
+    running_reward = 10
+    ac = ActorCritic(env, env.observation_space.shape[0], env.action_space.n)
 
-if __name__ == "__main__":
+    # run infinitely many episodes
+    for i_episode in count(1):
+
+        # reset environment and episode reward
+        state = env.reset()
+        ep_reward = 0
+
+        # for each episode, only run 9999 steps so that we don't
+        # infinite loop while learning
+        for t in range(1, 10000):
+
+            # select action from policy
+            action = ac.select_action(state)
+
+            # take the action
+            state, reward, done,  _ = env.step(action)
+
+            if args.render:
+                env.render()
+
+            ac.model.rewards.append(reward)
+            ep_reward += reward
+            if done:
+                break
+
+        # update cumulative reward
+        running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
+
+        # perform backprop
+        ac.finish_episode()
+
+        # log results
+        if i_episode % args.log_interval == 0:
+            print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
+                  i_episode, ep_reward, running_reward))
+
+        # check if we have "solved" the cart pole problem
+        if running_reward > env.spec.reward_threshold:
+            print("Solved! Running reward is now {} and "
+                  "the last episode runs to {} time steps!".format(running_reward, t))
+            break
+
+
+if __name__ == '__main__':
     main()

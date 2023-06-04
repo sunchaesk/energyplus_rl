@@ -9,6 +9,7 @@ from typing import Dict, Any, Tuple, Optional, List
 from queue import Queue, Empty, Full
 from datetime import datetime
 import math
+import time
 
 import random
 
@@ -526,6 +527,9 @@ class EnergyPlusEnv(gym.Env):
         self.last_obs = self.observation_space.sample()
 
         if self.energyplus_runner is not None:
+            # print('EEEEEEEEEEEEEEEEEEEEEEEE')
+            # print('STOPPPP')
+            # print('EEEEEEEEEEEEEEEEEEEEEEEE')
             self.energyplus_runner.stop()
 
         # observations and actions queues for flow control
@@ -583,7 +587,8 @@ class EnergyPlusEnv(gym.Env):
         #     range2=(15, 30)
         # )
         #sat_spt_value = self._rescale(int(action)) # maybe need int(action)
-        sat_spt_value = action[0]
+        #sat_spt_value = action[0]
+        sat_spt_value = np.float32(action)
 
         # enqueue action (received by EnergyPlus through dedicated callback)
         # then wait to get next observation.
@@ -649,6 +654,18 @@ class EnergyPlusEnv(gym.Env):
 
         #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
         return obs_vec, reward_energy, done, False, {'date': (month, day)}
+
+    def b_during_sim(self):
+        '''
+        ret boolean value of whether sim is running/not
+        '''
+        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
+        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+        curr_date = datetime(2000, month, day)
+        if curr_date < self.start_date or curr_date > self.end_date:
+            return False
+        else:
+            return True
 
     def render(self, mode="human"):
         # TODO? : maybe add IDF visualization option
