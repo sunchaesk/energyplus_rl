@@ -2,160 +2,22 @@
 import base_cont as base
 
 import gym
-import numpy as np
-from collections import namedtuple
-
+import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-from torch.distributions import Categorical
+from torch.distributions import Normal
+import torch.nn.functional as F
+import numpy as np
+import matplotlib.pyplot as plt
+from torch.nn.utils import clip_grad_norm_
 from torch.utils.tensorboard import SummaryWriter
+from collections import deque
+from datetime import datetime
+#import pybullet_envs
+#env_name = "MountainCarContinuous-v0" #"MountainCarContinuous-v0"  #Pendulum-v0 LunarLanderContinuous-v2
 
 writer = SummaryWriter()
-
-SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
-
-class Policy(nn.Module):
-    """
-    implements both actor and critic in one model
-    """
-    def __init__(self, env):
-        super(Policy, self).__init__()
-        self.env = env
-        self.obs_space = env.observation_space.shape[0]
-        self.affine1 = nn.Linear(self.obs_space, 128)
-
-        # actor's layer
-        self.action_head = nn.Linear(128, 2)
-
-        # critic's layer
-        self.value_head = nn.Linear(128, 1)
-
-        # action & reward buffer
-        self.saved_actions = []
-        self.rewards = []
-
-    def forward(self, x):
-        """
-        forward of both actor and critic
-        """
-        x = F.relu(self.affine1(x))
-
-        # actor: choses action to take from state s_t
-        # by returning probability of each action
-        action_prob = F.softmax(self.action_head(x), dim=-1)
-
-        # critic: evaluates being in the state s_t
-        state_values = self.value_head(x)
-
-        # return values for both actor and critic as a tuple of 2 values:
-        # 1. a list with the probability of each action over the action space
-        # 2. the value from state s_t
-        return action_prob, state_values
-
-
-class ActorCritic():
-    def __init__(self, env, state_dim, action_dim, learning_rate=0.005):
-        self.env = env
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        self.named_tup = namedtuple('SavedAction', ['log_prob', 'value'])
-        self.learning_rate = learning_rate
-        self.gamma = 0.99
-        self.eps = np.finfo(np.float32).eps.item()
-
-        self.save_freq = 10 # num of episodes for saving
-
-        self.model = Policy(env)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-
-    def select_action(self, state):
-        state = torch.from_numpy(state).float()
-        probs, state_value = self.model(state)
-
-        m = Categorical(probs)
-
-        action = m.sample()
-
-        self.model.saved_actions.append(SavedAction(m.log_prob(action), state_value))
-
-        return action.item()
-
-    def finish_episode(self):
-        '''
-        Calculates actor and critic loss and performs backprop
-        '''
-        R = 0
-        saved_actions = self.model.saved_actions
-        policy_losses = []
-        value_losses = []
-        returns = []
-        for r in self.model.rewards[::-1]:
-            R = r + self.gamma * R
-            returns.insert(0, R)
-
-        returns = torch.tensor(returns)
-        returns = (returns - returns.mean()) / (returns.std() + self.eps)
-
-        for (log_prob, value), R in zip(saved_actions, returns):
-            advantage = R - value.item()
-
-            policy_losses.append(-log_prob * advantage)
-
-            value_losses.append(F.smooth_l1_loss(value, torch.tensor([R])))
-
-        self.optimizer.zero_grad()
-
-        # sum all values of policy_losses and value_losses
-        loss = torch.stack(policy_losses).sum() + torch.stack(value_losses).sum()
-
-        # performs backprop
-        loss.backward()
-        self.optimizer.step()
-
-        # reset
-        del self.model.rewards[:]
-        del self.model.saved_actions[:]
-        # return loss for tensorboard logging
-        return loss
-
-    def train(self,max_episodes=500):
-        step_cnt = 0
-        for ep in range(max_episodes):
-            if ep % self.save_freq == 0:
-                torch.save(self.model, './model')
-            done = False
-            episode_reward = 0
-            observation = self.env.reset()
-            reward = 0
-            info = {}
-            while not done:
-                # get action
-                if self.env.b_during_sim():
-                    # if during sim NN to select action
-                    action = self.select_action(observation)
-                else:
-                    # if not during sim, random sample, important that NN is not triggered
-                    action = self.env.action_space.sample()[0]
-                # take the action
-                observation, reward, done, truncated, info = self.env.step(action)
-                if reward == 0:
-                    print('Cont... Date:', info.get('date', None))
-                    continue
-                #
-                self.model.rewards.append(reward)
-                episode_reward += reward
-                if done:
-                    loss = self.finish_episode()
-                    writer.add_scalar('Loss/Train', loss, ep)
-                    writer.add_scalar('EP-Reward/Train', episode_reward, ep)
-                    print('Episode {}\tLast reward: {:.2f}\t'.format(
-                        ep, episode_reward)
-                    )
-                    print('Simulation Ended... Starting new simulation')
-                    break
-
 
 default_args = {'idf': '../in.idf',
                 'epw': '../weather.epw',
@@ -168,12 +30,260 @@ default_args = {'idf': '../in.idf',
                 'end_date': (8,21)
                 }
 
-def main():
-    env = base.EnergyPlusEnv(default_args)
-    agent = ActorCritic(env,
-                        env.observation_space.shape[0],
-                        env.action_space)
-    agent.train(500)
+env = base.EnergyPlusEnv(default_args)
+
+print("action space: ", env.action_space.shape[0])
+print("observation space ", env.observation_space.shape[0])
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using: ", device)
+
+GAMMA = 0.9
+ENTROPY_BETA = 0.001
+CLIP_GRAD = .1
+LR_c = 1e-3
+LR_a = 1e-3
+
+HIDDEN_SIZE = 128
+
+class Critic(nn.Module):
+    def __init__(self, input_shape):
+        super(Critic, self).__init__()
+        self.net = nn.Sequential(nn.Linear(input_shape, HIDDEN_SIZE),
+                                 nn.ReLU(),
+                                 nn.Linear(HIDDEN_SIZE,HIDDEN_SIZE),
+                                 nn.ReLU(),
+                                 nn.Linear(HIDDEN_SIZE, 1))
+
+    def forward(self,x):
+        x = self.net(x)
+        return x
+
+class Actor(nn.Module):
+    def __init__(self, input_shape, output_shape):
+        super(Actor, self).__init__()
+        self.net = nn.Sequential(nn.Linear(input_shape, HIDDEN_SIZE),
+                                 nn.ReLU(),
+                                 nn.Linear(HIDDEN_SIZE,HIDDEN_SIZE),
+                                 nn.ReLU(),
+                                 )
+        self.mean = nn.Sequential(nn.Linear(HIDDEN_SIZE, output_shape),
+                                  nn.Tanh())                    # tanh squashed output to the range of -1..1
+        self.variance =nn.Sequential(nn.Linear(HIDDEN_SIZE, output_shape),
+                                     nn.Softplus())             # log(1 + e^x) has the shape of a smoothed ReLU
+
+    def forward(self,x):
+        x = self.net(x)
+        return self.mean(x), self.variance(x)
+
+
+# def calc_actions(mean, variance):
+
+#     sigma = torch.sqrt(variance)
+#     m = Normal(mean, sigma)
+#     actions = m.sample()
+#     actions = torch.clamp(actions, -1, 1) # usually clipping between -1,1 but pendulum env has action range of -2,2
+#     return actions
+
+# def calc_logprob(mu_v, var_v, actions_v):
+#     # calc log(pi):
+#     # torch.clamp to prevent division on zero if variance is to small
+#     p1 = - ((actions_v - mu_v) ** 2) / (2*var_v.clamp(min=1e-3))
+#     p2 = - torch.log(torch.sqrt(2 * math.pi * var_v))
+#     return p1 + p2
+
+
+def compute_returns(rewards,masks, gamma=GAMMA):
+    R = 0 #pred.detach()
+    returns = []
+    for step in reversed(range(len(rewards))):
+        R = rewards[step] + gamma * R * masks[step]
+        returns.insert(0, R)
+    return torch.FloatTensor(returns).reshape(-1).unsqueeze(1)
+
+def sample(mean, variance):
+    """
+    Calculates the actions, log probs and entropy based on a normal distribution by a given mean and variance.
+
+    ====================================================
+
+    calculate log prob:
+    log_prob = -((action - mean) ** 2) / (2 * var) - log(sigma) - log(sqrt(2 *pi))
+
+    calculate entropy:
+    entropy =  0.5 + 0.5 * log(2 *pi * sigma)
+    entropy here relates directly to the unpredictability of the actions which an agent takes in a given policy.
+    The greater the entropy, the more random the actions an agent takes.
+
+    """
+    sigma = torch.sqrt(variance)
+    m = Normal(mean, sigma)
+    actions = m.sample()
+    actions = torch.clamp(actions, -1, 1) # usually clipping between -1,1 but pendulum env has action range of -2,2
+    logprobs = m.log_prob(actions)
+    entropy = m.entropy()  # Equation: 0.5 + 0.5 * log(2 *pi * sigma)
+    #print('ENTROPY?', entropy)
+
+    return actions, logprobs, entropy
+
+
+def run_optimization(logprob_batch, entropy_batch, values_batch, rewards_batch, masks):
+    """
+    Calculates the actor loss and the critic loss and backpropagates it through the Network
+
+    ============================================
+    Critic loss:
+    c_loss = -logprob * advantage
+
+    a_loss =
+
+    """
+
+    log_prob_v = torch.cat(logprob_batch).to(device)
+    entropy_v = torch.cat(entropy_batch).to(device)
+    value_v = torch.cat(values_batch).to(device)
+
+
+
+    rewards_batch = torch.FloatTensor(rewards_batch)
+    masks = torch.FloatTensor(masks)
+    discounted_rewards = compute_returns(rewards_batch, masks).to(device)
+
+    # critic_loss
+    c_optimizer.zero_grad()
+    critic_loss = 0.5 * F.mse_loss(value_v, discounted_rewards) #+ ENTROPY_BETA * entropy.detach().mean()
+    critic_loss.backward()
+    clip_grad_norm_(critic.parameters(),CLIP_GRAD)
+    c_optimizer.step()
+
+    # A(s,a) = Q(s,a) - V(s)
+    advantage = discounted_rewards - value_v.detach()
+
+    #actor_loss
+    a_optimizer.zero_grad()
+    actor_loss = (-log_prob_v * advantage).mean() + ENTROPY_BETA * entropy.detach().mean()
+    print('ENTROPY:', entropy)
+    actor_loss.backward()
+    clip_grad_norm_(actor.parameters(),CLIP_GRAD)
+    a_optimizer.step()
+
+    return actor_loss, critic_loss
+
+
+f_name = './logs/scores-'
+f_name += datetime.now().strftime('%m-%d-%H:%M')
+f_name += '.txt'
+def save_reward(score:float) -> None:
+  with open(f_name, 'a') as scores_f:
+    scores_f.write(str(score) + '\n')
+
+
+# torch.manual_seed(42)
+# torch.cuda.manual_seed(42)
+# np.random.seed(42)
+# env.seed(42)
+def main(load=True):
+    '''
+    @param: load flag is whether to load model from ./model/checkpoint.pt
+    '''
+
+    input_shape  = env.observation_space.shape[0]
+    output_shape = env.action_space.shape[0]
+
+    critic = Critic(input_shape).to(device)
+    actor = Actor(input_shape, output_shape).to(device)
+    c_optimizer = optim.Adam(params = critic.parameters(),lr = LR_c)
+    a_optimizer = optim.Adam(params = actor.parameters(),lr = LR_a)
+
+    # load model from ./model/checkpoint.pt
+    start_episode = 0
+    if load:
+        checkpoint = torch.load('./model/checkpoint.pt')
+        start_episode = checkpoint['episode'] + 1
+        critic.load_state_dict(checkpoint['critic_state_dict'])
+        actor.load_state_dict(checkpoint['actor_state_dict'])
+        a_optimizer.load_state_dict(checkpoint['actor_optimizer'])
+        c_optimizer.load_state_dict(checkpoint['critic_optimizer'])
+
+    max_episodes = 500
+
+    # how often you save the model
+    checkpoint_freq = 10
+
+    actor_loss_list = []
+    critic_loss_list = []
+    entropy_list = []
+
+
+    average_100 = []
+    plot_rewards = []
+    steps = 0
+
+    for ep in range(start_episode + 1, max_episodes + 1):
+        state = env.reset()
+        done = False
+
+        episode_reward = 0
+
+        logprob_batch = []
+        entropy_batch = []
+        values_batch = []
+        rewards_batch = []
+        masks = []
+        while not done:
+
+            state = torch.from_numpy(state).float()
+
+            if env.b_during_sim():
+                mean, variance = actor(state.unsqueeze(0).to(device))
+                action, logprob, entropy = sample(mean.cpu(), variance.cpu())
+                value = critic(state.unsqueeze(0).to(device))
+                next_state, reward, done, truncated, info = env.step(action[0].numpy())
+                steps += 1
+                episode_reward += reward
+            else:
+                action = env.action_space.sample()
+                #print('ACTION:', action)
+                next_state, reward, done, truncated, info = env.step(action)
+                state = next_state
+                print('\r skipping... date', str(info['date']), end='', flush=True)
+                continue
+
+
+            logprob_batch.append(logprob)
+            entropy_batch.append(entropy)
+            values_batch.append(value)
+            rewards_batch.append(reward)
+            masks.append(1 - done)
+
+            writer.add_scalar('LogProb/Steps', logprob, steps)
+            writer.add_scalar('Entropy/Steps', entropy, steps)
+            writer.add_scalar('Values/Steps', value, steps)
+            writer.add_scalar('Rewards/Steps', reward, steps)
+
+            state = next_state
+
+            if done:
+                break
+
+            actor_loss, critic_loss = run_optimization(logprob_batch, entropy_batch, values_batch, rewards_batch, masks)
+
+            actor_loss_list.append(actor_loss)
+            critic_loss_list.append(critic_loss)
+
+            print('################')
+            print("\rEpisode: {} | Ep_Reward: {:.2f}".format(ep, episode_reward), end = "\n", flush = True)
+            print('################')
+
+            if ep != 0 and ep % checkpoint_freq == 0:
+                print('Saveing model episode:' + str(ep) + ' to ./model/checkpoint.pt')
+                torch.save({
+                    'episode': ep,
+                    'actor_state_dict': actor.state_dict(),
+                    'critic_state_dict': critic.state_dict(),
+                    'actor_optimizer': a_optimizer.state_dict(),
+                    'critic_optimizer': c_optimizer.state_dict(),
+                }, './model/checkpoint.pt')
+
 
 if __name__ == "__main__":
-    main()
+    main(True)

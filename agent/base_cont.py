@@ -368,6 +368,11 @@ class EnergyPlusRunner:
         }
         self.obs_queue.put(self.next_obs)
 
+    def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
+        old_range = old_range_max - old_range_min
+        new_range = new_range_max - new_range_min
+        return (((action - old_range_min) * new_range) / old_range) + new_range_min
+
     def _send_actions(self, state_argument):
         """
         EnergyPlus callback that sets actuator value from last decided action
@@ -378,7 +383,11 @@ class EnergyPlusRunner:
 
         if self.act_queue.empty():
             return
-        next_action = self.act_queue.get()
+        next_action = self.act_queue.get()[0]
+        next_action = self._rescale(next_action, -1, 1, 15, 30)
+        # print('######')
+        # print('next:', next_action)
+        # print('######')
         assert isinstance(next_action, float) or isinstance(next_action, np.float32) # for Box action space, next_action dtype will be float32
 
         #print(next_action)
@@ -831,6 +840,7 @@ class EnergyPlusEnv(gym.Env):
     def _rescale(
             n: int
     ) -> float:
+        ''' DEPRECATED '''
         action_cooling_actuator_vals = np.linspace(15,30,151)
         return action_cooling_actuator_vals[n]
 
