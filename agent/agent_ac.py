@@ -169,8 +169,9 @@ def run_optimization(logprob_batch, entropy_batch, values_batch, rewards_batch, 
     return actor_loss, critic_loss
 
 
-f_name = './logs/scores-'
-f_name += datetime.now().strftime('%m-%d-%H:%M')
+f_name = './logs/scores'
+# f_name = './logs/scores-'
+# f_name += datetime.now().strftime('%m-%d-%H:%M')
 f_name += '.txt'
 def save_reward(score:float) -> None:
   with open(f_name, 'a') as scores_f:
@@ -202,7 +203,20 @@ average_100 = []
 plot_rewards = []
 steps = 0
 
-for ep in range(max_episodes):
+start_episode = 0
+load = True
+if load:
+    try:
+        checkpoint = torch.load('./model/checkpoint.pt')
+        actor.load_state_dict(checkpoint['actor_state_dict'])
+        critic.load_state_dict(checkpoint['critic_state_dict'])
+        c_optimizer.load_state_dict(checkpoint['critic_optimizer'])
+        a_optimizer.load_state_dict(checkpoint['actor_optimizer'])
+        start_episode = checkpoint['episode'] + 1
+    except:
+        print('ERROR: ./model/checkpoint.pt not found -> training from episode = 0')
+
+for ep in range(start_episode, max_episodes + 1):
     state = env.reset()
     done = False
 
@@ -257,6 +271,7 @@ for ep in range(max_episodes):
     print('################')
     print("\rEpisode: {} | Ep_Reward: {:.2f}".format(ep, episode_reward), end = "\n", flush = True)
     print('################')
+    save_reward(episode_reward)
 
     if ep != 0 and ep % 2 == 0:
         print('Saveing model episode:' + str(ep) + ' to ./model/checkpoint.pt')
