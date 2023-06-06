@@ -181,109 +181,89 @@ def save_reward(score:float) -> None:
 # torch.cuda.manual_seed(42)
 # np.random.seed(42)
 # env.seed(42)
-def main(load=True):
-    '''
-    @param: load flag is whether to load model from ./model/checkpoint.pt
-    '''
-
-    input_shape  = env.observation_space.shape[0]
-    output_shape = env.action_space.shape[0]
-
-    critic = Critic(input_shape).to(device)
-    actor = Actor(input_shape, output_shape).to(device)
-    c_optimizer = optim.Adam(params = critic.parameters(),lr = LR_c)
-    a_optimizer = optim.Adam(params = actor.parameters(),lr = LR_a)
-
-    # load model from ./model/checkpoint.pt
-    start_episode = 0
-    if load:
-        checkpoint = torch.load('./model/checkpoint.pt')
-        start_episode = checkpoint['episode'] + 1
-        critic.load_state_dict(checkpoint['critic_state_dict'])
-        actor.load_state_dict(checkpoint['actor_state_dict'])
-        a_optimizer.load_state_dict(checkpoint['actor_optimizer'])
-        c_optimizer.load_state_dict(checkpoint['critic_optimizer'])
-
-    max_episodes = 500
-
-    # how often you save the model
-    checkpoint_freq = 10
-
-    actor_loss_list = []
-    critic_loss_list = []
-    entropy_list = []
 
 
-    average_100 = []
-    plot_rewards = []
-    steps = 0
+input_shape  = env.observation_space.shape[0]
+output_shape = env.action_space.shape[0]
 
-    for ep in range(start_episode + 1, max_episodes + 1):
-        state = env.reset()
-        done = False
+critic = Critic(input_shape).to(device)
+actor = Actor(input_shape, output_shape).to(device)
+c_optimizer = optim.Adam(params = critic.parameters(),lr = LR_c)
+a_optimizer = optim.Adam(params = actor.parameters(),lr = LR_a)
 
-        episode_reward = 0
+max_episodes = 1000
 
-        logprob_batch = []
-        entropy_batch = []
-        values_batch = []
-        rewards_batch = []
-        masks = []
-        while not done:
-
-            state = torch.from_numpy(state).float()
-
-            if env.b_during_sim():
-                mean, variance = actor(state.unsqueeze(0).to(device))
-                action, logprob, entropy = sample(mean.cpu(), variance.cpu())
-                value = critic(state.unsqueeze(0).to(device))
-                next_state, reward, done, truncated, info = env.step(action[0].numpy())
-                steps += 1
-                episode_reward += reward
-            else:
-                action = env.action_space.sample()
-                #print('ACTION:', action)
-                next_state, reward, done, truncated, info = env.step(action)
-                state = next_state
-                print('\r skipping... date', str(info['date']), end='', flush=True)
-                continue
+actor_loss_list = []
+critic_loss_list = []
+entropy_list = []
 
 
-            logprob_batch.append(logprob)
-            entropy_batch.append(entropy)
-            values_batch.append(value)
-            rewards_batch.append(reward)
-            masks.append(1 - done)
+average_100 = []
+plot_rewards = []
+steps = 0
 
-            writer.add_scalar('LogProb/Steps', logprob, steps)
-            writer.add_scalar('Entropy/Steps', entropy, steps)
-            writer.add_scalar('Values/Steps', value, steps)
-            writer.add_scalar('Rewards/Steps', reward, steps)
+for ep in range(max_episodes):
+    state = env.reset()
+    done = False
 
+    episode_reward = 0
+
+    logprob_batch = []
+    entropy_batch = []
+    values_batch = []
+    rewards_batch = []
+    masks = []
+    while not done:
+
+        state = torch.from_numpy(state).float()
+
+        if env.b_during_sim():
+            mean, variance = actor(state.unsqueeze(0).to(device))
+            action, logprob, entropy = sample(mean.cpu(), variance.cpu())
+            value = critic(state.unsqueeze(0).to(device))
+            next_state, reward, done, truncated, info = env.step(action[0].numpy())
+            steps += 1
+            episode_reward += reward
+        else:
+            action = env.action_space.sample()
+            #print('ACTION:', action)
+            next_state, reward, done, truncated, info = env.step(action)
             state = next_state
-
-            if done:
-                break
-
-            actor_loss, critic_loss = run_optimization(logprob_batch, entropy_batch, values_batch, rewards_batch, masks)
-
-            actor_loss_list.append(actor_loss)
-            critic_loss_list.append(critic_loss)
-
-            print('################')
-            print("\rEpisode: {} | Ep_Reward: {:.2f}".format(ep, episode_reward), end = "\n", flush = True)
-            print('################')
-
-            if ep != 0 and ep % checkpoint_freq == 0:
-                print('Saveing model episode:' + str(ep) + ' to ./model/checkpoint.pt')
-                torch.save({
-                    'episode': ep,
-                    'actor_state_dict': actor.state_dict(),
-                    'critic_state_dict': critic.state_dict(),
-                    'actor_optimizer': a_optimizer.state_dict(),
-                    'critic_optimizer': c_optimizer.state_dict(),
-                }, './model/checkpoint.pt')
+            print('\r skipping... date', str(info['date']), end='', flush=True)
+            continue
 
 
-if __name__ == "__main__":
-    main(True)
+        logprob_batch.append(logprob)
+        entropy_batch.append(entropy)
+        values_batch.append(value)
+        rewards_batch.append(reward)
+        masks.append(1 - done)
+
+        writer.add_scalar('LogProb/Steps', logprob, steps)
+        writer.add_scalar('Entropy/Steps', entropy, steps)
+        writer.add_scalar('Values/Steps', value, steps)
+        writer.add_scalar('Rewards/Steps', reward, steps)
+
+        state = next_state
+
+        if done:
+          break
+
+    actor_loss, critic_loss = run_optimization(logprob_batch, entropy_batch, values_batch, rewards_batch, masks)
+
+    actor_loss_list.append(actor_loss)
+    critic_loss_list.append(critic_loss)
+
+    print('################')
+    print("\rEpisode: {} | Ep_Reward: {:.2f}".format(ep, episode_reward), end = "\n", flush = True)
+    print('################')
+
+    if ep != 0 and ep % 2 == 0:
+        print('Saveing model episode:' + str(ep) + ' to ./model/checkpoint.pt')
+        torch.save({
+            'episode': ep,
+            'actor_state_dict': actor.state_dict(),
+            'critic_state_dict': critic.state_dict(),
+            'actor_optimizer': a_optimizer.state_dict(),
+            'critic_optimizer': c_optimizer.state_dict(),
+        }, './model/checkpoint.pt')
