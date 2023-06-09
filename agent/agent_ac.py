@@ -37,13 +37,16 @@ print("observation space ", env.observation_space.shape[0])
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using: ", device)
 
+
 GAMMA = 0.9
+# GAMMA = 0.99
 ENTROPY_BETA = 0.001
 CLIP_GRAD = .1
 LR_c = 1e-3
 LR_a = 1e-3
 
 HIDDEN_SIZE = 128
+# HIDDEN_SIZE = 256
 
 class Critic(nn.Module):
     def __init__(self, input_shape):
@@ -76,23 +79,12 @@ class Actor(nn.Module):
         return self.mean(x), self.variance(x)
 
 
-# def calc_actions(mean, variance):
 
-#     sigma = torch.sqrt(variance)
-#     m = Normal(mean, sigma)
-#     actions = m.sample()
-#     actions = torch.clamp(actions, -1, 1) # usually clipping between -1,1 but pendulum env has action range of -2,2
-#     return actions
-
-# def calc_logprob(mu_v, var_v, actions_v):
-#     # calc log(pi):
-#     # torch.clamp to prevent division on zero if variance is to small
-#     p1 = - ((actions_v - mu_v) ** 2) / (2*var_v.clamp(min=1e-3))
-#     p2 = - torch.log(torch.sqrt(2 * math.pi * var_v))
-#     return p1 + p2
-
-
+# NOTE: for infinite horizon
 def compute_returns(rewards,masks, gamma=GAMMA):
+    '''
+    infinite horizon
+    '''
     R = 0 #pred.detach()
     returns = []
     for step in reversed(range(len(rewards))):
@@ -100,7 +92,30 @@ def compute_returns(rewards,masks, gamma=GAMMA):
         returns.insert(0, R)
     return torch.FloatTensor(returns).reshape(-1).unsqueeze(1)
 
-def sample(mean, variance):
+# NOTE: for finite horizon
+# def compute_returns(rews, masks):
+#     '''
+#     rews: rewards
+#     masks: masks but not used
+#     '''
+#     rews = list(reversed(rews))
+#     ret = np.zeros_like(rews)
+#     # horizon = 35  # set it to one less than desired T -> 6 * 6 - 1
+#     horizon = 71
+#     for i in range(len(rews)):
+#         temp = 0
+#         if i - horizon > 0:
+#             end = i - horizon - 1
+#         else:
+#             end = -1
+#         for j in range(i, end, -1):
+#             temp += rews[j]
+#         ret[i] = temp
+#     ret = list(reversed(ret))
+#     return torch.FloatTensor(ret).reshape(-1).unsqueeze(1)
+
+
+def sample(mean, variance, mask_range):
     """
     Calculates the actions, log probs and entropy based on a normal distribution by a given mean and variance.
 
@@ -118,6 +133,7 @@ def sample(mean, variance):
     sigma = torch.sqrt(variance)
     m = Normal(mean, sigma)
     actions = m.sample()
+    #print('ACTIONS: ', actions)
     actions = torch.clamp(actions, -1, 1) # usually clipping between -1,1 but pendulum env has action range of -2,2
     logprobs = m.log_prob(actions)
     entropy = m.entropy()  # Equation: 0.5 + 0.5 * log(2 *pi * sigma)
@@ -174,9 +190,13 @@ f_name = './logs/scores'
 # f_name += datetime.now().strftime('%m-%d-%H:%M')
 f_name += '.txt'
 def save_reward(score:float) -> None:
-  with open(f_name, 'a') as scores_f:
-    scores_f.write(str(score) + '\n')
+    with open(f_name, 'a') as scores_f:
+        scores_f.write(str(score) + '\n')
 
+f_name2 = './thermal_log.txt'
+def save_thermal_comfort(score:float) -> None:
+    with open(f_name2, 'a') as scores_f:
+        scores_f.write(str(score) + '\n')
 
 # torch.manual_seed(42)
 # torch.cuda.manual_seed(42)
@@ -192,7 +212,7 @@ actor = Actor(input_shape, output_shape).to(device)
 c_optimizer = optim.Adam(params = critic.parameters(),lr = LR_c)
 a_optimizer = optim.Adam(params = actor.parameters(),lr = LR_a)
 
-max_episodes = 1000
+max_episodes = 100
 
 actor_loss_list = []
 critic_loss_list = []
@@ -227,17 +247,26 @@ for ep in range(start_episode, max_episodes + 1):
     values_batch = []
     rewards_batch = []
     masks = []
+
+    # for logging
+    #thermal_comfort_list = []
+
     while not done:
 
         state = torch.from_numpy(state).float()
 
         if env.b_during_sim():
             mean, variance = actor(state.unsqueeze(0).to(device))
-            action, logprob, entropy = sample(mean.cpu(), variance.cpu())
+            action, logprob, entropy = sample(mean.cpu(), variance.cpu(), tuple([-1,1]))
             value = critic(state.unsqueeze(0).to(device))
             next_state, reward, done, truncated, info = env.step(action[0].numpy())
             steps += 1
-            episode_reward += reward
+            episode_reward += info['energy_reward']
+            state = next_state
+
+            # NOTE: for logging
+            #save_thermal_comfort(info['comfort_reward'])
+            #thermal_comfort_list.append(info['comfort_reward'])
         else:
             action = env.action_space.sample()
             #print('ACTION:', action)
@@ -271,6 +300,8 @@ for ep in range(start_episode, max_episodes + 1):
     print('################')
     print("\rEpisode: {} | Ep_Reward: {:.2f}".format(ep, episode_reward), end = "\n", flush = True)
     print('################')
+
+    # save stuff
     save_reward(episode_reward)
 
     if ep != 0 and ep % 2 == 0:

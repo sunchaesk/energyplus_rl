@@ -13,34 +13,6 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from torch.nn.utils import clip_grad_norm_
 
-f_name = './logs/scores-base.txt'
-
-def movingaverage(interval, window_size):
-    window = np.ones(int(window_size))/float(window_size)
-    return np.convolve(interval, window, 'same')
-
-def plotting_base():
-    with open(f_name, 'r') as scores_file:
-        scores = scores_file.read().split('\n')
-        del scores[-1]
-        #print(scores)
-
-        plt.figure(figsize=(30,5))
-        scores = np.array([-float(x) for x in scores])
-        scores_idx = np.array(list(range(len(scores))))
-        plt.plot(scores_idx, scores, 'ob-', label='Points')
-
-        window = 10
-        moving_avg = np.convolve(scores, np.ones(10) / window, mode='valid')
-        plt.plot(range(window - 1, len(scores)), moving_avg, 'r-', label='Moving Average')
-
-        #plt.yscale('log')
-        plt.ylabel('Energy Consumption for Summer Period 6/21 ~ 8/21 (J)')
-        plt.xlabel('Episode')
-        plt.show()
-        #plt.savefig('./pic/ac_base')
-
-####################################################3
 HIDDEN_SIZE=128
 class Actor(nn.Module):
     def __init__(self, input_shape, output_shape):
@@ -84,7 +56,9 @@ def sample(mean, variance):
 
     return actions, logprobs, entropy
 
-checkpoint_path = './model/checkpoint-base.pt'
+# checkpoint_path = './model/checkpoint-base-128.pt'
+# checkpoint_path = './model/checkpoint-penalty-0.9-128.pt'
+checkpoint_path = './model/checkpoint.pt'
 
 default_args = {'idf': '../in.idf',
                 'epw': '../weather.epw',
@@ -112,6 +86,8 @@ def test_model():
     steps = 0
     cooling_actuator_value = []
     heating_actuator_value = []
+    indoor_temperature = []
+    outdoor_temperature = []
     thermal_comfort = []
 
     # simulation run
@@ -119,17 +95,21 @@ def test_model():
     done = False
     episode_reward = 0
     while not done:
+        # if steps == 1000:
+        #     done = True
         state = torch.from_numpy(state).float()
         if env.b_during_sim():
             mean, variance = actor(state.unsqueeze(0).to(device))
             action, logprob, entropy = sample(mean.cpu(), variance.cpu())
             next_state, reward, done, truncated, info = env.step(action[0].numpy())
             steps += 1
-            episode_reward += reward
+            episode_reward += info['energy_reward']
             state = next_state
 
             thermal_comfort.append(info['comfort_reward'])
             cooling_actuator_value.append(info['actuators'][0])
+            indoor_temperature.append(state[1])
+            outdoor_temperature.append(state[0])
             heating_actuator_value.append(info['actuators'][1])
         else:
             action = env.action_space.sample()
@@ -149,24 +129,41 @@ def test_model():
         }
         test_file.write(json.dumps(data))
 
-    x = list(range(steps))
+    # for testing up to 1000 stpes
+    # steps_start = 50
+    # steps = 100
+    # size = steps - steps_start
+
+    steps_start = 10
+    steps = 310
+    size = 300
+
+    x = list(range(size))
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('steps')
     ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
-    ax1.plot(x, cooling_actuator_value, 'b-')
-    ax1.plot(x, heating_actuator_value, 'r-')
+    ax1.plot(x, cooling_actuator_value[steps_start:steps], 'b-', label='cooling actuator value')
+    ax1.plot(x, heating_actuator_value[steps_start:steps], 'r-', label='heating actuator value')
+    # ax1.plot(x, indoor_temperature[steps_start:steps], 'g-', label='indoor temperature')
+    # ax1.plot(x, outdoor_temperature[steps_start:steps], 'c-', label='outdoor temperature')
     ax1.tick_params(axis='y', labelcolor='tab:blue')
 
     ax2 = ax1.twinx()
-    ax2.set_ylabel('PMV (%) ')
-    ax2.plot(x, thermal_comfort, color='black')
+    ax2.set_ylabel('PMV [-3, 3] ')
+    ax2.axhline(y=0.7, color='black',linestyle='--')
+    ax2.axhline(y=-0.7, color='black',linestyle='--')
+    ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
     ax2.tick_params(axis='y', labelcolor='black')
 
+    ax1.legend()
+    ax2.legend()
     fig.tight_layout()
     plt.show()
+
+# def test_penalty_scores():
 
 
 
 if __name__ == "__main__":
-    #test_model()
-    plotting_base()
+    test_model()
+    #test_penalty()

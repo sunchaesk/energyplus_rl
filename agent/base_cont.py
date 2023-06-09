@@ -13,6 +13,8 @@ import time
 
 import random
 
+import scipy
+
 import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete, Box
@@ -369,6 +371,9 @@ class EnergyPlusRunner:
         self.obs_queue.put(self.next_obs)
 
     def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
+        '''
+        _rescale method can be used for larger range to smaller range
+        '''
         old_range = old_range_max - old_range_min
         new_range = new_range_max - new_range_min
         return (((action - old_range_min) * new_range) / old_range) + new_range_min
@@ -389,6 +394,7 @@ class EnergyPlusRunner:
         # print('next:', next_action)
         # print('######')
         assert isinstance(next_action, float) or isinstance(next_action, np.float32) # for Box action space, next_action dtype will be float32
+        assert next_action >= 15
 
         #print(next_action)
         # self.x.set_actuator_value(
@@ -501,6 +507,8 @@ class EnergyPlusEnv(gym.Env):
         self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
+        self.acceptable_pmv = 0.7
+
         # observation space:
         # outdoor_temp, indoor_temp_living, mean_radiant_temperature_living, relative_humidity_living, exterior_diffuse_radiation_living, exterior_beam_radiation_living
         # NOTE: I am unsure about the actual bound -> set as larger than expected values
@@ -520,12 +528,33 @@ class EnergyPlusEnv(gym.Env):
         self.prev_obs = None
 
         # action space: np.linspace(15,30,0.1)
-        self.action_space: Box = Box(np.array([15]), np.array([27]), dtype=np.float32)
+        self.action_space: Box = Box(np.array([15]), np.array([30]), dtype=np.float32)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.meter_queue: Optional[Queue] = None
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
+
+    def masking_valid_actions(self, obs) -> float:
+        '''
+        for Policy Gradient methods, find valid action values of the indoor air temperature
+        NOTE: valid action value will be
+        NOTE: make sure this function is called after the obs_vec has been updated
+        to the current time step
+        '''
+        def f(x):
+            tr = self.last_obs['mean_radiant_temperature_living']
+            rh = self.last_obs['relative_humidity_living']
+            return self._compute_reward_thermal_comfort(x, tr, 0.1, rh)
+
+
+    def retrieve_actuators(self):
+        #temp1 = self.x.get_actuator_value(state_argument,self.actuator_handles['cooling_actuator_living'])
+        #temp2 = self.x.get_actuator_value(state_argument, self.actuator_handles['heating_actuator_living'])
+        runner = self.energyplus_runner
+        cooling_actuator_value = runner.x.get_actuator_value(runner.energyplus_state, runner.actuator_handles['cooling_actuator_living'])
+        heating_actuator_value = runner.x.get_actuator_value(runner.energyplus_state, runner.actuator_handles['heating_actuator_living'])
+        return (cooling_actuator_value, heating_actuator_value)
 
     def reset(
             self, *,
@@ -614,8 +643,8 @@ class EnergyPlusEnv(gym.Env):
             done = True
             obs = self.last_obs
             meter = self.last_meter
-
-        # noticed cases where obs are same as prev (some bottleneck with simulation)
+            # NOTE: from this point below, obs is updated
+            # noticed cases where obs are same as prev (some bottleneck with simulation)
         obs_vec = np.array(list(obs.values()))
         # if obs_vec == self.prev_obs:
         if  (obs_vec == self.prev_obs).all():
@@ -627,12 +656,18 @@ class EnergyPlusEnv(gym.Env):
         # compute energy reward
         reward_energy = self._compute_reward_energy(meter)
         # compute thermal comfort reward
-        thermal_comfort = self._compute_reward_thermal_comfort(
+        reward_thermal_comfort = self._compute_reward_thermal_comfort(
             obs_vec[1],
             obs_vec[2],
             0.1, #NOTE: for now set as 0.1, but find if E+ can generate specific values
             obs_vec[3]
         )
+
+        PENALTY = None
+        if abs(reward_thermal_comfort) > self.acceptable_pmv:
+            PENALTY = -1e20
+        else:
+            PENALTY = 0
 
         ####
         #### MANUAL RUNTIME MANIPULATION
@@ -645,10 +680,17 @@ class EnergyPlusEnv(gym.Env):
         curr_date = datetime(2000, month, day)
         if curr_date < self.start_date:
             # if before simulation start date -> return 0 as reward
-            return obs_vec, 0, False, False, {'date': (month, day)}
+            return obs_vec, 0, False, False, {'date': (month, day),
+                                              'actuators': self.retrieve_actuators(),
+                                              'energy_reward': reward_energy,
+                                              'comfort_reward': reward_thermal_comfort}
         if curr_date > self.end_date:
             # if past simulation end date -> done = True
-            return obs_vec, reward_energy, True, False, {'date': (month, day)}
+            # actuators[0] -> cooling, actuators[1] -> heating
+            return obs_vec, (reward_energy + PENALTY), True, False, {'date': (month, day),
+                                                                     'actuators' : self.retrieve_actuators(),
+                                                                     'energy_reward': reward_energy,
+                                                                     'comfort_reward': reward_thermal_comfort}
 
 
         # this won't always work (reason for queue timeout), as simulation
@@ -662,7 +704,10 @@ class EnergyPlusEnv(gym.Env):
         # print('THERMAL COMFORT:', thermal_comfort)
 
         #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
-        return obs_vec, reward_energy, done, False, {'date': (month, day)}
+        return obs_vec, (reward_energy + PENALTY), done, False, {'date': (month, day),
+                                                                 'actuators' : self.retrieve_actuators(),
+                                                                 'energy_reward': reward_energy,
+                                                                 'comfort_reward': reward_thermal_comfort}
 
     def b_during_sim(self):
         '''
@@ -731,8 +776,8 @@ class EnergyPlusEnv(gym.Env):
                     hc = hcf
                 else:
                     hc = hcn
-                xn = (p5 + p4 * hc - p2 * xf**4) / (100 + p3 * hc)
-                n += 1
+                    xn = (p5 + p4 * hc - p2 * xf**4) / (100 + p3 * hc)
+                    n += 1
                 if n > 150:
                     raise StopIteration("Max iterations exceeded")
 
@@ -745,7 +790,7 @@ class EnergyPlusEnv(gym.Env):
                 hl2 = 0.42 * (mw - 58.15)
             else:
                 hl2 = 0
-            # latent respiration heat loss
+                # latent respiration heat loss
             hl3 = 1.7 * 0.00001 * m * (5867 - pa)
             # dry respiration heat loss
             hl4 = 0.0014 * m * (34 - tdb)
@@ -820,13 +865,14 @@ class EnergyPlusEnv(gym.Env):
         #print('V_REL', v_rel)
         pmv = pmv_ppd_optimized(tdb, tr, v_rel, rh, 1.4, clo_dynamic, 0)
         # now calc and return ppd
-        return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
+        return pmv
+    #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
 
     @staticmethod
     def _compute_reward_energy(meter: Dict[str, float]) -> float:
         """compute reward scalar"""
         #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
-        reward = -1 * meter['elec_hvac']
+        #reward = -1 * meter['elec_hvac']
         # reward = obs['elec_heating'] + obs['elec_cooling']
         # print('REWARD:', reward)
         # below is reward testing
@@ -834,15 +880,15 @@ class EnergyPlusEnv(gym.Env):
         # print("#########################")
         # print(reward)
         # print("#########################")
+        reward = -1 * meter['elec_cooling']
         return reward
 
-    @staticmethod
-    def _rescale(
-            n: int
-    ) -> float:
-        ''' DEPRECATED '''
-        action_cooling_actuator_vals = np.linspace(15,30,151)
-        return action_cooling_actuator_vals[n]
+    #    def _rescale(
+    #            n: int
+    #    ) -> float:
+    #        ''' DEPRECATED '''
+    #        action_cooling_actuator_vals = np.linspace(15,30,151)
+    #        return action_cooling_actuator_vals[n]
 
 
 
@@ -888,7 +934,7 @@ if __name__ == "__main__":
             print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             #print('OBS', n_state)
             #print('RET STUFF:', ret)
-            score+=reward
+            score+=info['energy_reward']
             #print('Episode:{} Reward:{} Score:{}'.format(episode, reward, score))
 
         scores.append(score)

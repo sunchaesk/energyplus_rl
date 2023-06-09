@@ -49,6 +49,40 @@ def plot_hidden():
         plt.show()
         #plt.savefig('./pic/ac_base')
 
+def plot_penalty():
+    data_fname1 = './logs/scores-base-128.txt'
+    data_fname2 = './logs/scores-penalty-0.9-128.txt'
+    plt.figure(figsize=(30,5))
+    label1 = 'no penalty'
+    label2 = 'penalty'
+    with open(data_fname1, 'r') as data1, open(data_fname2, 'r') as data2:
+        scores1 = data1.read().split('\n')
+        scores2 = data2.read().split('\n')
+        del scores1[-1]
+        del scores2[-1]
+        scores1 = np.array([-float(x) for x in scores1])
+        scores2 = np.array([-float(x) for x in scores2])
+        scores_idx1 = np.array(list(range(len(scores1))))
+        scores_idx2 = np.array(list(range(len(scores2))))
+        plt.plot(scores_idx1, scores1, 'b-', label=label1)
+        plt.plot(scores_idx2, scores2, 'r-', label=label2)
+        plt.title('Penalty VS No Penalty / 128 hidden, gamma=0.9')
+        plt.ylabel('Energy Consumption for Summer Period 6/21 ~ 8/21 (J)')
+        plt.xlabel('Episode')
+        plt.legend()
+        plt.show()
+
+        # window = 5
+        # moving_avg1 = np.convolve(scores1, np.ones(window)/window, mode='valid')
+        # moving_avg2 = np.convolve(scores2, np.ones(window)/window, mode='valid')
+        # plt.plot(range(window - 1, len(scores1)), moving_avg1, 'r-', label=label1)
+        # plt.plot(range(window - 1, len(scores2)), moving_avg2, 'b-', label=label2)
+        # plt.title(f'Penalty VS No Penalty ({window} ep Moving Average)')
+        # plt.ylabel('Energy Consumption for Summer Period 6/21 ~ 8/21 (J)')
+        # plt.xlabel('Episode')
+        # plt.legend()
+        # plt.show()
+
 def plot_horizon():
     data_fname1 = './logs/scores-base-128.txt'
     data_fname2 = './logs/scores-finite6-128.txt'
@@ -110,6 +144,25 @@ def plot_horizon():
         plt.show()
 
 
+def plot_file(fname):
+    window = 5
+    with open(fname, 'r') as data:
+        plt.figure(figsize=(30,5))
+        scores = data.read().split('\n')
+        del scores[-1]
+        scores = np.array([-float(x) for x in scores])
+        scores_idx = np.array(list(range(len(scores))))
+        plt.plot(scores_idx, scores, 'r-')
+
+        moving_avg1 = np.convolve(scores, np.ones(window)/window, mode='valid')
+        plt.plot(range(window - 1,len(scores)), moving_avg1, 'b-')
+
+        moving_avg2 = np.convolve(scores, np.ones(10)/10, mode='valid')
+        plt.plot(range(10 - 1, len(scores)), moving_avg2, 'g-')
+        plt.show()
+
 if __name__ == "__main__":
-    plot_horizon()
+    plot_file('./logs/scores-penalty-1e20.txt')
+    #plot_penalty()
+    #plot_horizon()
     #plot_hidden()

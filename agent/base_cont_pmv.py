@@ -119,19 +119,23 @@ class EnergyPlusRunner:
         # this simulation will interact with
         self.variables = {
             # °C
+            # 0
             "outdoor_temp" : ("Site Outdoor Air Drybulb Temperature", "Environment"),
             # solar radiation
             # beam radiant
             # diffused radiant
             # °C
+            # 1
             "indoor_temp_living" : ("Zone Air Temperature", 'living_unit1'),
             # °C
             # "indoor_temp_attic": ("Zone Air Temperature", 'attic_unit1'), # NOTE: air temperature already have? NOTE: attic temp not needed?
 
             # °C, surface area times emissivity
+            # 2
             "mean_radiant_temperature_living": ("Zone Mean Radiant Temperature", "living_unit1"),
 
             # %, air relative humidity after the correct step for each zone
+            # 3
             "relavite_humidity_living": ("Zone Air Relative Humidity", "living_unit1"),
 
             # m/s air velocity
@@ -531,7 +535,7 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
-    def masking_valid_actions(self, obs) -> float:
+    def calc_mask_range(self, obs) -> float:
         '''
         for Policy Gradient methods, find valid action values of the indoor air temperature
         NOTE: valid action value will be
@@ -539,9 +543,24 @@ class EnergyPlusEnv(gym.Env):
         to the current time step
         '''
         def f(x):
-            tr = self.last_obs['mean_radiant_temperature_living']
-            rh = self.last_obs['relative_humidity_living']
-            return self._compute_reward_thermal_comfort(x, tr, 0.1, rh)
+            # tr = self.last_obs['mean_radiant_temperature_living']
+            # rh = self.last_obs['relative_humidity_living']
+            tr = obs[2]
+            rh = obs[3]
+            return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
+        pivot = None
+        for i in np.arange(15, 30, 0.5):
+            if f(i) < 0:
+                pivot = i
+        if pivot == None:
+            # NOTE: if PMV not satisfiable -> don't select any action TODO change to minimize?
+            return (15, 30) 
+
+        range_low = scipy.optimize.brentq(f, pivot, pivot - 10)
+        range_high = scipy.optimize.brentq(f, pivot, pivot + 10)
+        range_low_adjusted = self.energyplus_runner._rescale(range_low, 15, 30, -1, 1)
+        range_high_adjusted = self.energyplus_runner._rescale(range_high, 15, 30, -1, 1)
+        return (range_low_adjusted, range_high_adjusted)
 
 
     def retrieve_actuators(self):
