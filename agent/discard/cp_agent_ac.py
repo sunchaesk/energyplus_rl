@@ -27,7 +27,7 @@ default_args = {'idf': '../in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2,
-                'annual': True,# for some reasons if not annual, funky results
+                'annual': False,# for some reasons if not annual, funky results
                 'start_date': (6,21),
                 'end_date': (8,21)
                 }

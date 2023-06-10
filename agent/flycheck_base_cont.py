@@ -371,9 +371,6 @@ class EnergyPlusRunner:
         self.obs_queue.put(self.next_obs)
 
     def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
-        '''
-        _rescale method can be used for larger range to smaller range
-        '''
         old_range = old_range_max - old_range_min
         new_range = new_range_max - new_range_min
         return (((action - old_range_min) * new_range) / old_range) + new_range_min
@@ -394,7 +391,6 @@ class EnergyPlusRunner:
         # print('next:', next_action)
         # print('######')
         assert isinstance(next_action, float) or isinstance(next_action, np.float32) # for Box action space, next_action dtype will be float32
-        assert next_action >= 15
 
         #print(next_action)
         # self.x.set_actuator_value(
@@ -405,10 +401,8 @@ class EnergyPlusRunner:
         self.x.set_actuator_value(
             state=state_argument,
             actuator_handle=self.actuator_handles['cooling_actuator_living'],
-            # actuator_value=next_action
-            actuator_value=20.0
-            #30: 997029151
-            #20: 5255592191
+            actuator_value=next_action
+            # actuator_value=40.0
         )
         self.x.set_actuator_value(
             state=state_argument,
@@ -530,7 +524,7 @@ class EnergyPlusEnv(gym.Env):
         self.prev_obs = None
 
         # action space: np.linspace(15,30,0.1)
-        self.action_space: Box = Box(np.array([15]), np.array([30]), dtype=np.float32)
+        self.action_space: Box = Box(np.array([15]), np.array([27]), dtype=np.float32)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.meter_queue: Optional[Queue] = None
@@ -645,8 +639,8 @@ class EnergyPlusEnv(gym.Env):
             done = True
             obs = self.last_obs
             meter = self.last_meter
-            # NOTE: from this point below, obs is updated
-            # noticed cases where obs are same as prev (some bottleneck with simulation)
+        # NOTE: from this point below, obs is updated
+        # noticed cases where obs are same as prev (some bottleneck with simulation)
         obs_vec = np.array(list(obs.values()))
         # if obs_vec == self.prev_obs:
         if  (obs_vec == self.prev_obs).all():
@@ -667,7 +661,7 @@ class EnergyPlusEnv(gym.Env):
 
         PENALTY = None
         if abs(reward_thermal_comfort) > self.acceptable_pmv:
-            PENALTY = -1e20
+            PENALTY = -1e25
         else:
             PENALTY = 0
 
@@ -690,9 +684,9 @@ class EnergyPlusEnv(gym.Env):
             # if past simulation end date -> done = True
             # actuators[0] -> cooling, actuators[1] -> heating
             return obs_vec, (reward_energy + PENALTY), True, False, {'date': (month, day),
-                                                                     'actuators' : self.retrieve_actuators(),
-                                                                     'energy_reward': reward_energy,
-                                                                     'comfort_reward': reward_thermal_comfort}
+                                                         'actuators' : self.retrieve_actuators(),
+                                                         'energy_reward': reward_energy,
+                                                         'comfort_reward': reward_thermal_comfort}
 
 
         # this won't always work (reason for queue timeout), as simulation
@@ -707,9 +701,9 @@ class EnergyPlusEnv(gym.Env):
 
         #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
         return obs_vec, (reward_energy + PENALTY), done, False, {'date': (month, day),
-                                                                 'actuators' : self.retrieve_actuators(),
-                                                                 'energy_reward': reward_energy,
-                                                                 'comfort_reward': reward_thermal_comfort}
+                                                     'actuators' : self.retrieve_actuators(),
+                                                     'energy_reward': reward_energy,
+                                                     'comfort_reward': reward_thermal_comfort}
 
     def b_during_sim(self):
         '''
@@ -778,8 +772,8 @@ class EnergyPlusEnv(gym.Env):
                     hc = hcf
                 else:
                     hc = hcn
-                    xn = (p5 + p4 * hc - p2 * xf**4) / (100 + p3 * hc)
-                    n += 1
+                xn = (p5 + p4 * hc - p2 * xf**4) / (100 + p3 * hc)
+                n += 1
                 if n > 150:
                     raise StopIteration("Max iterations exceeded")
 
@@ -792,7 +786,7 @@ class EnergyPlusEnv(gym.Env):
                 hl2 = 0.42 * (mw - 58.15)
             else:
                 hl2 = 0
-                # latent respiration heat loss
+            # latent respiration heat loss
             hl3 = 1.7 * 0.00001 * m * (5867 - pa)
             # dry respiration heat loss
             hl4 = 0.0014 * m * (34 - tdb)
@@ -868,7 +862,7 @@ class EnergyPlusEnv(gym.Env):
         pmv = pmv_ppd_optimized(tdb, tr, v_rel, rh, 1.4, clo_dynamic, 0)
         # now calc and return ppd
         return pmv
-    #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
+        #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
 
     @staticmethod
     def _compute_reward_energy(meter: Dict[str, float]) -> float:
@@ -885,12 +879,13 @@ class EnergyPlusEnv(gym.Env):
         reward = -1 * meter['elec_cooling']
         return reward
 
-    #    def _rescale(
-    #            n: int
-    #    ) -> float:
-    #        ''' DEPRECATED '''
-    #        action_cooling_actuator_vals = np.linspace(15,30,151)
-    #        return action_cooling_actuator_vals[n]
+    @staticmethod
+    def _rescale(
+            n: int
+    ) -> float:
+        ''' DEPRECATED '''
+        action_cooling_actuator_vals = np.linspace(15,30,151)
+        return action_cooling_actuator_vals[n]
 
 
 
@@ -909,8 +904,8 @@ default_args = {'idf': '../in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2,
-                'annual': False,# for some reasons if not annual, funky results
-                'start_date': (6,21), # DEPRECATED -> fixed the idf running problem
+                'annual': True,# for some reasons if not annual, funky results
+                'start_date': (6,21),
                 'end_date': (8,21)
                 }
 # SCORES:  [81884676878.09312, 81884676878.09312]
@@ -922,7 +917,7 @@ if __name__ == "__main__":
     print(env.action_space)
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
-    for episode in range(3):
+    for episode in range(1):
         state = env.reset()[0]
         done = False
         score = 0
@@ -931,8 +926,7 @@ if __name__ == "__main__":
             #env.render()
             #action = env.action_space.sample()
             #action = 22.0
-            # action = env.action_space.sample()
-            action = [20]
+            action = env.action_space.sample()
             ret = n_state, reward, done, truncated, info = env.step(action)
             print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             #print('OBS', n_state)
@@ -942,4 +936,4 @@ if __name__ == "__main__":
 
         scores.append(score)
         print("SCORES: ", scores)
-    print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?
+        print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?

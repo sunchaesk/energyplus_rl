@@ -5,10 +5,14 @@ import psutil
 import os
 import shutil
 
+script = 'cp_agent_ac.py'
+
 if __name__ == "__main__":
+    print('Running Script File:', script)
+    time.sleep(5)
     sp.Popen(['mkdir', 'model/'])
     sp.Popen(['mkdir', 'logs/'])
-    run = sp.Popen(['python3', 'agent_ac.py'])
+    run = sp.Popen(['python3', script])
     while True:
         print("PSUTIL:MEMORY:", psutil.virtual_memory().percent)
         if psutil.virtual_memory().percent >= 75:
@@ -30,6 +34,6 @@ if __name__ == "__main__":
             #         os.remove(path)
 
 
-            run = sp.Popen(['python3', 'agent_ac.py'])
+            run = sp.Popen(['python3', script])
 
         time.sleep(5)

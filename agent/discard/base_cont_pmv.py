@@ -549,13 +549,16 @@ class EnergyPlusEnv(gym.Env):
             rh = obs[3]
             return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
         pivot = None
-        for i in np.arange(15, 30, 0.5):
+        # for i in np.arange(15, 30, 0.5):
+        for i in [22.5, 23.0, 22.0, 23.5, 21.5, 24.0, 21.0, 24.5, 20.5, 25.0, 20.0, 25.5, 19.5, 26.0, 19.0, 26.5, 18.5, 27.0, 18.0, 27.5, 17.5, 28.0]:
             if f(i) < 0:
                 pivot = i
         if pivot == None:
             # NOTE: if PMV not satisfiable -> don't select any action TODO change to minimize?
             return (15, 30) 
 
+
+        # return (15, 30)
         range_low = scipy.optimize.brentq(f, pivot, pivot - 10)
         range_high = scipy.optimize.brentq(f, pivot, pivot + 10)
         range_low_adjusted = self.energyplus_runner._rescale(range_low, 15, 30, -1, 1)
@@ -875,10 +878,12 @@ class EnergyPlusEnv(gym.Env):
 
 
         #
-        clo_dynamic = 0.443 # precomputed with the clo value of 0.5 (clo_dynamic(0.5, 1.4))
-        v_rel = v_relative(v, 1.4)
+        # clo_dynamic = 0.443 # precomputed with the clo value of 0.5 (clo_dynamic(0.5, 1.4))
+        clo = 0.5
+        v = 0.1
+        # v_rel = v_relative(v, 1.4)
         #print('V_REL', v_rel)
-        pmv = pmv_ppd_optimized(tdb, tr, v_rel, rh, 1.4, clo_dynamic, 0)
+        pmv = pmv_ppd_optimized(tdb, tr, v, rh, 1.4, clo, 0)
         # now calc and return ppd
         return pmv
         #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))

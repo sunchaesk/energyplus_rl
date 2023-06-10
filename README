@@ -17,3 +17,8 @@
 - [ ] continual learning feature (NOTE: controller that tracks ram)
 - [ ] model save
 - [ ] fix base_cont action space
+- [X] fix run period
+- [X] check warming days same results 
+- [ ] exogeneous states
+- [X] benchmarking -> algo not trained properly
+- [ ] implement PPO, (maybe DDPG?)

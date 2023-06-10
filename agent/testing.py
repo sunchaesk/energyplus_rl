@@ -58,7 +58,7 @@ def sample(mean, variance):
 
 # checkpoint_path = './model/checkpoint-base-128.pt'
 # checkpoint_path = './model/checkpoint-penalty-0.9-128.pt'
-checkpoint_path = './model/checkpoint.pt'
+# checkpoint_path = './model/checkpoint.pt'
 
 default_args = {'idf': '../in.idf',
                 'epw': '../weather.epw',
@@ -102,6 +102,7 @@ def test_model():
             mean, variance = actor(state.unsqueeze(0).to(device))
             action, logprob, entropy = sample(mean.cpu(), variance.cpu())
             next_state, reward, done, truncated, info = env.step(action[0].numpy())
+            # next_state, reward, done, truncated, info = env.step(1)
             steps += 1
             episode_reward += info['energy_reward']
             state = next_state
@@ -137,6 +138,10 @@ def test_model():
     steps_start = 10
     steps = 310
     size = 300
+
+    print('##########################')
+    print('EP reward:', episode_reward)
+    print('##########################')
 
     x = list(range(size))
     fig, ax1 = plt.subplots()
