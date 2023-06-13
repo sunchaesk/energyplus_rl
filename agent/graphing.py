@@ -144,7 +144,7 @@ def plot_horizon():
         plt.show()
 
 
-def plot_file(fname):
+def plot_file(fname,x,y):
     window = 5
     with open(fname, 'r') as data:
         plt.figure(figsize=(30,5))
@@ -159,10 +159,14 @@ def plot_file(fname):
 
         moving_avg2 = np.convolve(scores, np.ones(10)/10, mode='valid')
         plt.plot(range(10 - 1, len(scores)), moving_avg2, 'g-')
+
+        plt.xlabel(x)
+        plt.ylabel(y)
+
         plt.show()
 
 if __name__ == "__main__":
-    plot_file('./logs/scores-penalty-1e20.txt')
+    plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
     #plot_penalty()
     #plot_horizon()
     #plot_hidden()

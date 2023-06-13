@@ -9,7 +9,7 @@ import json
 from collections import deque, namedtuple
 
 import base_cont as base
-# import base_test as base
+# import base_pmv as base
 
 import torch
 import torch.nn as nn
@@ -393,6 +393,7 @@ def test():
             heating_actuator_value.append(info['actuators'][1])
             indoor_temperature.append(state[0][1])
             outdoor_temperature.append(state[0][0])
+            thermal_comfort.append(info['comfort_reward'])
             if done:
                 break
 
@@ -418,9 +419,9 @@ def test():
 
     ax2 = ax1.twinx()
     ax2.set_ylabel('PMV [-3, 3] ')
-    # ax2.axhline(y=0.7, color='black',linestyle='--')
-    # ax2.axhline(y=-0.7, color='black',linestyle='--')
-    # ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
+    ax2.axhline(y=0.7, color='black',linestyle='--')
+    ax2.axhline(y=-0.7, color='black',linestyle='--')
+    ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
     # ax2.tick_params(axis='y', labelcolor='black')
 
     ax1.legend()

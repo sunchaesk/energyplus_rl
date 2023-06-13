@@ -3,7 +3,7 @@
 BY571/SAC.py
 """
 
-# import base_test as base
+# import base_pmv as base
 import base_cont as base
 
 import sys
@@ -352,7 +352,7 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             print('ERROR loading model... starting training from scratch')
 
     for i_episode in range(start_episode + 1, n_episodes+1):
-    # for i_episode in range(1):
+    # for i_episode in range(2):
 
         state = env.reset()
         state = state.reshape((1,state_size))
@@ -361,11 +361,21 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         done = False
 
         t = 0
+
+        # DEBUG
+        rewards = []
+        comfort = []
+        act = []
+        comfort_bound_high = []
+        comfort_bound_low = []
+        action_before_clip = []
+        action_after_clip = []
+
         while not done:
             #print(i_episode)
             action = agent.act(state)
-            action_v = action.numpy()
-            action_v = np.clip(action_v*action_high, action_low, action_high)
+            action_pre_clip = action.numpy()
+            action_v = np.clip(action_pre_clip*action_high, action_low, action_high)
             #print(action_v)
             next_state, reward, done, truncated, info = env.step(action_v)
             #print('reward', reward, info['energy_reward'], flush=True)
@@ -373,11 +383,42 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             agent.step(state, action, reward, next_state, done, t)
             t += 1
 
+            # DEBUG
+            action_before_clip.append(action_pre_clip[0])
+            rewards.append(reward)
+                # temp = env.masking_valid_actions()
+                # comfort_bound_high.append(temp[1])
+                # comfort_bound_low.append(temp[0])
+
             state = next_state
-            score += reward #todo change this to score += info['energy_reward']
+
+            #DEBUG
+            score += info['energy_reward']
+            act.append(action_v[0])
+            rewards.append(reward)
+            comfort.append(info['comfort_reward'])
+
 
             if done:
                 break
+
+        # DEBUG
+        start = 0
+        end = 300
+        x = list(range(end - start))
+
+        print(rewards)
+        print('mean', np.mean(rewards))
+        # print(x)
+        # print(act)
+
+        fig, ax1 = plt.subplots()
+        ax1.set_title('First 300 steps of training episode 1')
+        ax1.scatter(x[start:end], act[start:end], color='red')
+        ax1.axhline(-1, color='black', linestyle='--')
+        ax1.axhline(1, color='black', linestyle='--')
+        fig.tight_layout()
+        plt.show()
 
         scores_deque.append(score)
         # writer.add_scalar("Reward", score, i_episode)
@@ -402,6 +443,7 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             }, './model/sac-checkpoint.pt')
 
 
+    # for loop end
     #torch.save(agent.actor_local.state_dict(), 'pendulum' + ".pt")
 
 
@@ -415,7 +457,7 @@ parser.add_argument("-info", type=str, help="Information or name of the run")
 parser.add_argument("-ep", type=int, default=100, help="The amount of training episodes, default is 100")
 parser.add_argument("-seed", type=int, default=0, help="Seed for the env and torch network weights, default is 0")
 parser.add_argument("-lr", type=float, default=5e-5, help="Learning rate of adapting the network weights, default is 5e-4")
-parser.add_argument("-a", "--alpha", type=float, help="entropy alpha value, if not choosen the value is leaned by the agent")
+parser.add_argument("-a", "--alpha", type=float,default=0.1, help="entropy alpha value, if not choosen the value is leaned by the agent")
 parser.add_argument("-layer_size", type=int, default=256, help="Number of nodes per neural network layer, default is 256")
 parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e6), help="Size of the Replay memory, default is 1e6")
 parser.add_argument("--print_every", type=int, default=2, help="Prints every x episodes the average reward over x episodes")
@@ -449,6 +491,10 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
+    FIXED_ALPHA = 0.1
+    print('################3')
+    print("ALPHA", FIXED_ALPHA)
+    print('################3')
     #saved_model = args.saved_model
     saved_model = None
 

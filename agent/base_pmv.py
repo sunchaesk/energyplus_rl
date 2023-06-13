@@ -132,7 +132,7 @@ class EnergyPlusRunner:
             "mean_radiant_temperature_living": ("Zone Mean Radiant Temperature", "living_unit1"),
 
             # %, air relative humidity after the correct step for each zone
-            "relative_humidity_living": ("Zone Air Relative Humidity", "living_unit1"),
+            "relavite_humidity_living": ("Zone Air Relative Humidity", "living_unit1"),
 
             # m/s air velocity
             # "air_velocity_living": ("", ""),
@@ -543,33 +543,17 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
-    def masking_valid_actions(self) -> tuple:
+    def masking_valid_actions(self, obs) -> float:
         '''
         for Policy Gradient methods, find valid action values of the indoor air temperature
         NOTE: valid action value will be
         NOTE: make sure this function is called after the obs_vec has been updated
         to the current time step
         '''
-        #print("HITTTTT")
         def f(x):
             tr = self.last_obs['mean_radiant_temperature_living']
             rh = self.last_obs['relative_humidity_living']
-            return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
-
-        pivot = None
-        xs = (x * 0.5 for x in range(0,31))
-        for x in xs:
-            #print('x', x+15, 'f(x)', f(x + 15))
-            if f(x + 15) < 0:
-                pivot = x + 15
-        if pivot == None:
-            return (15, 30)
-        else:
-            #print('FFF', f(pivot - 10), f(pivot), f(pivot + 10))
-            root1 = scipy.optimize.brentq(f, pivot, pivot + 10)
-            root2 = scipy.optimize.brentq(f, pivot, pivot - 10)
-            #print(root1, root2)
-            return root2, root1 # tuple([lower root, higher root])
+            return self._compute_reward_thermal_comfort(x, tr, 0.1, rh)
 
 
     def retrieve_actuators(self):
@@ -687,12 +671,11 @@ class EnergyPlusEnv(gym.Env):
             obs_vec[3]
         )
 
-        # NOTE: HARD-spiking penalty
-        # PENALTY = None
-        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
-        #     PENALTY = -1e20
-        # else:
-        #     PENALTY = 0
+        PENALTY = None
+        if abs(reward_thermal_comfort) > self.acceptable_pmv:
+            PENALTY = -1e20
+        else:
+            PENALTY = 0
 
 
         ####
@@ -889,7 +872,7 @@ class EnergyPlusEnv(gym.Env):
         clo_dynamic = 0.443 # precomputed with the clo value of 0.5 (clo_dynamic(0.5, 1.4))
         v_rel = v_relative(v, 1.4)
         #print('V_REL', v_rel)
-        pmv = pmv_ppd_optimized(tdb, tr, 0.1, rh, 1.4, clo_dynamic, 0)
+        pmv = pmv_ppd_optimized(tdb, tr, v_rel, rh, 1.4, clo_dynamic, 0)
         # now calc and return ppd
         return pmv
     #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
