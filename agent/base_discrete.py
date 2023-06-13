@@ -666,7 +666,7 @@ class EnergyPlusEnv(gym.Env):
         curr_date = datetime(2000, month, day)
         if curr_date < self.start_date:
             # if before simulation start date -> return 0 as reward
-            return obs_vec, 0, False, False, {'date': (month, day)}
+            return obs_vec, 10000, False, False, {'date': (month, day)}
         if curr_date > self.end_date:
             # if past simulation end date -> done = True
             return obs_vec, reward_energy, True, False, {'date': (month, day)}

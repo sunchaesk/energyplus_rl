@@ -1,3 +1,4 @@
+import time
 
 import os
 import sys
@@ -5,7 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import json
 
-import base_cont as base
+#import base_cont as base
+import base_test as base
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,7 +16,8 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from torch.nn.utils import clip_grad_norm_
 
-HIDDEN_SIZE=128
+HIDDEN_SIZE=32
+# HIDDEN_SIZE = 128
 class Actor(nn.Module):
     def __init__(self, input_shape, output_shape):
         super(Actor, self).__init__()
@@ -58,7 +62,7 @@ def sample(mean, variance):
 
 # checkpoint_path = './model/checkpoint-base-128.pt'
 # checkpoint_path = './model/checkpoint-penalty-0.9-128.pt'
-# checkpoint_path = './model/checkpoint.pt'
+checkpoint_path = './model/sac-checkpoint.pt'
 
 default_args = {'idf': '../in.idf',
                 'epw': '../weather.epw',
@@ -66,7 +70,7 @@ default_args = {'idf': '../in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2,
-                'annual': True,# for some reasons if not annual, funky results
+                'annual': False,# for some reasons if not annual, funky results
                 'start_date': (6,21),
                 'end_date': (8,21)
                 }
@@ -76,6 +80,8 @@ def test_model():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     test_model = torch.load(checkpoint_path)
     episode = test_model['episode']
+    print('EPISODE:', episode)
+    time.sleep(3)
     env = base.EnergyPlusEnv(default_args)
     input_shape = env.observation_space.shape[0]
     output_shape = env.action_space.shape[0]
@@ -102,12 +108,12 @@ def test_model():
             mean, variance = actor(state.unsqueeze(0).to(device))
             action, logprob, entropy = sample(mean.cpu(), variance.cpu())
             next_state, reward, done, truncated, info = env.step(action[0].numpy())
-            # next_state, reward, done, truncated, info = env.step(1)
+            # next_state, reward, done, truncated, info = env.step([1])
             steps += 1
             episode_reward += info['energy_reward']
             state = next_state
 
-            thermal_comfort.append(info['comfort_reward'])
+            # thermal_comfort.append(info['comfort_reward'])
             cooling_actuator_value.append(info['actuators'][0])
             indoor_temperature.append(state[1])
             outdoor_temperature.append(state[0])
@@ -119,6 +125,9 @@ def test_model():
             print('\r skipping... date', str(info['date']), end='', flush=True)
             continue
 
+
+    print(cooling_actuator_value)
+    print(episode_reward)
     # save test value
     f_name = './logs/model_test.json'
     with open(f_name, 'w') as test_file:
@@ -157,8 +166,8 @@ def test_model():
     ax2.set_ylabel('PMV [-3, 3] ')
     ax2.axhline(y=0.7, color='black',linestyle='--')
     ax2.axhline(y=-0.7, color='black',linestyle='--')
-    ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
-    ax2.tick_params(axis='y', labelcolor='black')
+    # ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
+    # ax2.tick_params(axis='y', labelcolor='black')
 
     ax1.legend()
     ax2.legend()

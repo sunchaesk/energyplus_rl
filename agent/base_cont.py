@@ -177,9 +177,10 @@ class EnergyPlusRunner:
             # 'sky_diffuse_solar_ldf2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
             # 'sky_diffuse_solar_ldb1': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
             # 'sky_diffuse_solar_ldb2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
-            # NOTE: since they are same reduce the # of varialbes to:
+            # DONE: since they are same reduce the # of varialbes to:
             'sky_diffuse_solar_ldf': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
             #'sky_diffuse_solar_ldb': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldb_1.unit1'),
+            # DONE
             'sky_diffuse_solar_sdr': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
             #'sky_diffuse_solar_sdl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
 
@@ -194,6 +195,7 @@ class EnergyPlusRunner:
             # 'ground_diffuse_solar_2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
             # 'ground_diffuse_solar_3': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
 
+            # DONE DONE
             'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment"),
             'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment"),
 
@@ -405,10 +407,8 @@ class EnergyPlusRunner:
         self.x.set_actuator_value(
             state=state_argument,
             actuator_handle=self.actuator_handles['cooling_actuator_living'],
-            # actuator_value=next_action
-            actuator_value=20.0
-            #30: 997029151
-            #20: 5255592191
+            actuator_value=next_action
+            # actuator_value=20.0
         )
         self.x.set_actuator_value(
             state=state_argument,
@@ -515,6 +515,12 @@ class EnergyPlusEnv(gym.Env):
         # outdoor_temp, indoor_temp_living, mean_radiant_temperature_living, relative_humidity_living, exterior_diffuse_radiation_living, exterior_beam_radiation_living
         # NOTE: I am unsure about the actual bound -> set as larger than expected values
         # TODO update this stuff
+        # low_obs = np.array(
+        #     [-100.0, -100.0, -100.0, 0, 0]
+        # )
+        # hig_obs = np.array(
+        #     [100.0, 100.0, 100.0, 100.0, 100000000.0]
+        # )
         low_obs = np.array(
             [-100.0, -100.0, -100.0, 0, 0, 0, 0, 0]
         )
@@ -670,6 +676,8 @@ class EnergyPlusEnv(gym.Env):
             PENALTY = -1e20
         else:
             PENALTY = 0
+
+        PENALTY = 0
 
         ####
         #### MANUAL RUNTIME MANIPULATION
@@ -883,6 +891,7 @@ class EnergyPlusEnv(gym.Env):
         # print(reward)
         # print("#########################")
         reward = -1 * meter['elec_cooling']
+        # reward = meter['elec_cooling']
         return reward
 
     #    def _rescale(

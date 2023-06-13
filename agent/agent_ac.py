@@ -1,5 +1,5 @@
 
-import base_cont as base
+import base_test as base
 
 import gym
 import math
@@ -25,7 +25,7 @@ default_args = {'idf': '../in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2,
-                'annual': True,# for some reasons if not annual, funky results
+                'annual': False,# for some reasons if not annual, funky results
                 'start_date': (6,21),
                 'end_date': (8,21)
                 }
@@ -42,10 +42,10 @@ GAMMA = 0.9
 # GAMMA = 0.99
 ENTROPY_BETA = 0.001
 CLIP_GRAD = .1
-LR_c = 1e-3
-LR_a = 1e-3
+LR_c = 1e-4
+LR_a = 1e-4
 
-HIDDEN_SIZE = 128
+HIDDEN_SIZE = 32
 # HIDDEN_SIZE = 256
 
 class Critic(nn.Module):
@@ -212,7 +212,7 @@ actor = Actor(input_shape, output_shape).to(device)
 c_optimizer = optim.Adam(params = critic.parameters(),lr = LR_c)
 a_optimizer = optim.Adam(params = actor.parameters(),lr = LR_a)
 
-max_episodes = 100
+max_episodes = 20000
 
 actor_loss_list = []
 critic_loss_list = []
@@ -260,6 +260,7 @@ for ep in range(start_episode, max_episodes + 1):
             action, logprob, entropy = sample(mean.cpu(), variance.cpu(), tuple([-1,1]))
             value = critic(state.unsqueeze(0).to(device))
             next_state, reward, done, truncated, info = env.step(action[0].numpy())
+            print('NEXT_STATE', next_state)
             steps += 1
             episode_reward += info['energy_reward']
             state = next_state

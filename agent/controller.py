@@ -5,7 +5,7 @@ import psutil
 import os
 import shutil
 
-script = 'cp_agent_ac.py'
+script = 'agent_ac.py'
 
 if __name__ == "__main__":
     print('Running Script File:', script)
