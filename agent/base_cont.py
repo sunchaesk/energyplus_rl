@@ -14,6 +14,7 @@ import time
 import random
 
 import scipy
+import pickle
 
 import gymnasium as gym
 import numpy as np
@@ -511,11 +512,16 @@ class EnergyPlusEnv(gym.Env):
         self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
+
         self.acceptable_pmv = 0.7
 
         # Caching PMV values to accelerate
         # NOTE: key: (tr, rh), val : (low, high)
+        self.using_pmv_cache = env_config['pmv_pickle_available']
         self.PMV_CACHE = dict()
+        self.PMV_CACHE_PATH = env_config['pmv_pickle_path']
+        if self.using_pmv_cache:
+            self.pickle_load_pmv_cache()
 
         # observation space:
         # outdoor_temp, indoor_temp_living, mean_radiant_temperature_living, relative_humidity_living, exterior_diffuse_radiation_living, exterior_beam_radiation_living
@@ -539,6 +545,9 @@ class EnergyPlusEnv(gym.Env):
         )
         self.last_obs = {}
 
+        # last obs saves it in dictionary format, but last_next_state saves the numpy vec
+        self.last_next_state = None
+
         self.prev_obs = None
 
         # action space: np.linspace(15,30,0.1)
@@ -549,11 +558,19 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
-    def pickle_save_pmv_cache():
-        pass
+    def pickle_save_pmv_cache(self):
+        '''
+        if pmv_pickle_avaiable is True -> self.using_pmv_cache is True
+        then even is pickle_save_pmv_cache() is called, it won't save
+        '''
+        if not self.using_pmv_cache:
+            with open(self.PMV_CACHE_PATH, 'wb') as handle:
+                pickle.dump(self.PMV_CACHE, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def pickle_load_pmv_cache():
-        pass
+    def pickle_load_pmv_cache(self):
+        with open(self.PMV_CACHE_PATH, 'rb') as handle:
+            p = pickle.load(handle)
+            self.PMV_CACHE = p
 
     def masking_valid_actions(self) -> tuple:
         '''
@@ -561,16 +578,18 @@ class EnergyPlusEnv(gym.Env):
         NOTE: valid action value will be
         NOTE: make sure this function is called after the obs_vec has been updated
         to the current time step
+
+        has caching feature to self.PMV_CACHE. Cache is statically saved to self.PMV_CACHE_PATH
         '''
         #print("HITTTTT")
         def f(x):
-            tr = self.last_obs['mean_radiant_temperature_living']
-            rh = self.last_obs['relative_humidity_living']
+            tr = self.last_next_state[2]
+            rh = self.last_next_state[3]
             return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
 
         # try fetch PMV_CACHE
-        tr = self.last_obs['mean_radiant_temperature_living']
-        rh = self.last_obs['relative_humidity_living']
+        tr = self.last_next_state[2]
+        rh = self.last_next_state[3]
         cache = self.PMV_CACHE.get((round(tr, 3), round(rh, 3)), False)
         if cache:
             return cache
@@ -640,9 +659,12 @@ class EnergyPlusEnv(gym.Env):
             meter = self.last_meter
             obs = self.last_obs
 
-        #return np.array(list(obs.values())), {}
-        #print('OBS:', obs.values(), len(obs.values()))
-        return np.array(list(obs.values()))
+        obs_vec = np.array(list(obs.values()))
+
+        # update the self.last_next_state
+        self.last_next_state = obs_vec
+
+        return obs_vec
     #return np.array(list(obs.values())), np.array(list(meter.values())) #
 
     def step(self, action):
@@ -696,6 +718,10 @@ class EnergyPlusEnv(gym.Env):
             print('########')
             return None, 0, None, None, None
 
+
+        # update the self.last_next_state
+        self.last_next_state = obs_vec
+
         # compute energy reward
         reward_energy = self._compute_reward_energy(meter)
         # compute thermal comfort reward
@@ -733,7 +759,7 @@ class EnergyPlusEnv(gym.Env):
         if abs(reward_thermal_comfort) > self.acceptable_pmv:
             penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
             PENALTY = penalty_linear(penalty_factor)
-            print('pen', PENALTY, penalty_factor)
+            #print('pen', PENALTY, penalty_factor)
         else:
             PENALTY = 0
 
@@ -979,7 +1005,9 @@ default_args = {'idf': '../in.idf',
                 'num_workers': 2,
                 'annual': False,# for some reasons if not annual, funky results
                 'start_date': (6,21), # DEPRECATED -> fixed the idf running problem
-                'end_date': (8,21)
+                'end_date': (8,21),
+                'pmv_pickle_available': True,
+                'pmv_pickle_path': './pmv_cache.pickle'
                 }
 # SCORES:  [81884676878.09312, 81884676878.09312]
 #
@@ -990,24 +1018,20 @@ if __name__ == "__main__":
     print(env.action_space)
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
-    for episode in range(3):
-        state = env.reset()[0]
+    for episode in range(1):
+        state = env.reset()
         done = False
         score = 0
 
         while not done:
-            #env.render()
-            #action = env.action_space.sample()
-            #action = 22.0
+            temp = env.masking_valid_actions()
+            print(temp)
             # action = env.action_space.sample()
-            action = [20]
-            ret = n_state, reward, done, truncated, info = env.step(action)
-            print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
-            #print('OBS', n_state)
-            #print('RET STUFF:', ret)
-            score+=info['energy_reward']
-            #print('Episode:{} Reward:{} Score:{}'.format(episode, reward, score))
+            # ret = n_state, reward, done, truncated, info = env.step(action)
+            # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
+            # score+=info['energy_reward']
 
+        env.pickle_save_pmv_cache()
         scores.append(score)
         print("SCORES: ", scores)
     print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?

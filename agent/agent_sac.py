@@ -354,8 +354,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         except:
             print('ERROR loading model... starting training from scratch')
 
-    for i_episode in range(start_episode + 1, n_episodes+1):
-    # for i_episode in range(2):
+    # for i_episode in range(start_episode + 1, n_episodes+1):
+    for i_episode in range(1):
 
         state = env.reset()
         state = state.reshape((1,state_size))
@@ -375,14 +375,18 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         action_after_clip = []
 
         while not done:
-            #print(i_episode)
+
+            temp  = env.masking_valid_actions()
+            print('temp', temp)
+
             action = agent.act(state)
             action_pre_clip = action.numpy()
             action_v = np.clip(action_pre_clip*action_high, action_low, action_high)
             #print(action_v)
             next_state, reward, done, truncated, info = env.step(action_v)
-            #print('reward', reward, info['energy_reward'], flush=True)
             next_state = next_state.reshape((1,state_size))
+
+
             agent.step(state, action, reward, next_state, done, t)
             t += 1
 
@@ -406,6 +410,7 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
                 break
 
         # DEBUG
+        env.pickle_save_pmv_cache()
         start = 0
         end = 300
         x = list(range(end - start))
@@ -479,7 +484,9 @@ default_args = {'idf': '../in.idf',
                 'num_workers': 2,
                 'annual': False,# for some reasons if not annual, funky results
                 'start_date': (6,21),
-                'end_date': (8,21)
+                'end_date': (8,21),
+                'pmv_pickle_available': True,
+                'pmv_pickle_path': './pmv_cache.pickle'
                 }
 
 if __name__ == "__main__":
