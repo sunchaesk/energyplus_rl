@@ -143,7 +143,6 @@ def plot_horizon():
         plt.legend()
         plt.show()
 
-
 def plot_file(fname,x,y):
     window = 5
     with open(fname, 'r') as data:
@@ -165,8 +164,56 @@ def plot_file(fname,x,y):
 
         plt.show()
 
+def plot_list(d_list, style='fit'):
+    '''
+    two availabe styles: fit, all
+    - fit fits all graphs to the min data len
+    - all fits all data to their respective data len
+    '''
+    fs = []
+    data_list = []
+    try:
+        open_file_list = [f[0] for f in d_list]
+        for f in open_file_list:
+            fs.append(open(f, 'r'))
+        for ff in fs:
+            data_list.append(ff.read().split('\n')[:-1])
+
+        plt.figure(figsize=(25,5))
+
+        if style == 'fit':
+            min_dlen = min([len(d) for d in data_list])
+            min_x = list(range(min_dlen))
+            for i in range(len(data_list)):
+                for j in range(len(data_list[i])):
+                    data_list[i][j] = -float(data_list[i][j])
+                plt.plot(min_x,data_list[i][0:min_dlen], label=d_list[i][1])
+
+        if style == 'all':
+            for i in range(len(data_list)):
+                for j in range(len(data_list[i])):
+                    data_list[i][j] = -float(data_list[i][j])
+                x_vals = list(range(len(data_list[i])))
+                plt.plot(x_vals, data_list[i], label=d_list[i][1])
+
+
+        plt.legend()
+        plt.show()
+    finally:
+        for f in fs:
+            f.close()
+
+
 if __name__ == "__main__":
-    plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
+    l = [
+        ('./logs/sac-linear7000.txt', 'linear 7000'),
+        ('./logs/sac-linear8000.txt', 'linear 8000'),
+        ('./logs/sac-linear9000.txt', 'linear 9000'),
+        ('./logs/sac-linear15000.txt', 'linear 15000'),
+        ('./logs/sac-linear22000.txt', 'linear 22000')
+    ]
+    plot_list(l, style='fit')
+    # plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
     #plot_penalty()
     #plot_horizon()
     #plot_hidden()

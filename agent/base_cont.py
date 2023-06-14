@@ -495,6 +495,8 @@ class EnergyPlusRunner:
                 q.get()
 
 
+
+
 class EnergyPlusEnv(gym.Env):
 
     '''
@@ -510,6 +512,10 @@ class EnergyPlusEnv(gym.Env):
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
         self.acceptable_pmv = 0.7
+
+        # Caching PMV values to accelerate
+        # NOTE: key: (tr, rh), val : (low, high)
+        self.PMV_CACHE = dict()
 
         # observation space:
         # outdoor_temp, indoor_temp_living, mean_radiant_temperature_living, relative_humidity_living, exterior_diffuse_radiation_living, exterior_beam_radiation_living
@@ -556,6 +562,13 @@ class EnergyPlusEnv(gym.Env):
             rh = self.last_obs['relative_humidity_living']
             return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
 
+        # try fetch PMV_CACHE
+        tr = self.last_obs['mean_radiant_temperature_living']
+        rh = self.last_obs['relative_humidity_living']
+        cache = self.PMV_CACHE.get((round(tr, 3), round(rh, 3)), False)
+        if cache:
+            return cache
+
         pivot = None
         xs = (x * 0.5 for x in range(0,31))
         for x in xs:
@@ -563,13 +576,13 @@ class EnergyPlusEnv(gym.Env):
             if f(x + 15) < 0:
                 pivot = x + 15
         if pivot == None:
+            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (15, 30)
             return (15, 30)
         else:
-            #print('FFF', f(pivot - 10), f(pivot), f(pivot + 10))
             root1 = scipy.optimize.brentq(f, pivot, pivot + 10)
             root2 = scipy.optimize.brentq(f, pivot, pivot - 10)
-            #print(root1, root2)
-            return root2, root1 # tuple([lower root, higher root])
+            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (root2, root1)
+            return (root2, root1) # tuple([lower root, higher root])
 
 
     def retrieve_actuators(self):
@@ -693,6 +706,30 @@ class EnergyPlusEnv(gym.Env):
         #     PENALTY = -1e20
         # else:
         #     PENALTY = 0
+
+        #NOTE: soft-penalty sigmoid with adjustable penalty param
+        # PENALTY_COEFF = -7000
+        # def penalty_sigmoid(x):
+        #     return PENALTY_COEFF * (1 / (1 + math.exp(-(x-0))))
+        # PENALTY = None
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
+        #     PENALTY = penalty_sigmoid(penalty_factor)
+        #     print('pen', PENALTY)
+        # else:
+        #     PENALTY = 0
+
+        # NOTE: soft-penalty linear
+        PENALTY = None
+        PENALTY_COEFF = -22000
+        def penalty_linear(pmv_diff):
+            return PENALTY_COEFF * pmv_diff
+        if abs(reward_thermal_comfort) > self.acceptable_pmv:
+            penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
+            PENALTY = penalty_linear(penalty_factor)
+            print('pen', PENALTY, penalty_factor)
+        else:
+            PENALTY = 0
 
 
         ####

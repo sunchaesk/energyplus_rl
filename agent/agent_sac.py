@@ -334,6 +334,9 @@ def save_reward(score:float) -> None:
         scores_f.write(str(score) + '\n')
 
 def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
+
+    n_episodes = 40
+
     scores_deque = deque(maxlen=100)
     average_100_scores = []
 
@@ -418,7 +421,7 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         ax1.axhline(-1, color='black', linestyle='--')
         ax1.axhline(1, color='black', linestyle='--')
         fig.tight_layout()
-        plt.show()
+        #plt.show()
 
         scores_deque.append(score)
         # writer.add_scalar("Reward", score, i_episode)
@@ -491,7 +494,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 0.1
+    FIXED_ALPHA = 3000
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')
