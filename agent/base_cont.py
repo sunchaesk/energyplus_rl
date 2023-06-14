@@ -549,6 +549,12 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
+    def pickle_save_pmv_cache():
+        pass
+
+    def pickle_load_pmv_cache():
+        pass
+
     def masking_valid_actions(self) -> tuple:
         '''
         for Policy Gradient methods, find valid action values of the indoor air temperature
