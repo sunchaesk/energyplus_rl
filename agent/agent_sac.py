@@ -335,8 +335,6 @@ def save_reward(score:float) -> None:
 
 def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
 
-    n_episodes = 40
-
     scores_deque = deque(maxlen=100)
     average_100_scores = []
 

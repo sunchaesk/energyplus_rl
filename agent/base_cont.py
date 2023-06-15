@@ -592,6 +592,7 @@ class EnergyPlusEnv(gym.Env):
         rh = self.last_next_state[3]
         cache = self.PMV_CACHE.get((round(tr, 3), round(rh, 3)), False)
         if cache:
+            # print('using cache!') # NOTE: checked that cache works
             return cache
 
         pivot = None
