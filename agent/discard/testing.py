@@ -1,3 +1,5 @@
+# DEPRECATED
+
 import time
 
 import os
@@ -6,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import json
 
-#import base_cont as base
-import base_test as base
+import base_cont as base
+# import base_test as base
 
 import torch
 import torch.nn as nn
@@ -62,7 +64,7 @@ def sample(mean, variance):
 
 # checkpoint_path = './model/checkpoint-base-128.pt'
 # checkpoint_path = './model/checkpoint-penalty-0.9-128.pt'
-checkpoint_path = './model/sac-checkpoint.pt'
+#checkpoint_path = './model/sac-checkpoint.pt'
 
 default_args = {'idf': '../in.idf',
                 'epw': '../weather.epw',
@@ -72,7 +74,7 @@ default_args = {'idf': '../in.idf',
                 'num_workers': 2,
                 'annual': False,# for some reasons if not annual, funky results
                 'start_date': (6,21),
-                'end_date': (8,21)
+                'end_date': (8,21),
                 }
 
 def test_model():

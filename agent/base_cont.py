@@ -767,16 +767,18 @@ class EnergyPlusEnv(gym.Env):
         #     PENALTY = 0
 
         # NOTE: soft-penalty linear
-        PENALTY = None
-        PENALTY_COEFF = -22000
-        def penalty_linear(pmv_diff):
-            return PENALTY_COEFF * pmv_diff
-        if abs(reward_thermal_comfort) > self.acceptable_pmv:
-            penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
-            PENALTY = penalty_linear(penalty_factor)
-            #print('pen', PENALTY, penalty_factor)
-        else:
-            PENALTY = 0
+        # PENALTY = None
+        # PENALTY_COEFF = -22000
+        # def penalty_linear(pmv_diff):
+        #     return PENALTY_COEFF * pmv_diff
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
+        #     PENALTY = penalty_linear(penalty_factor)
+        #     #print('pen', PENALTY, penalty_factor)
+        # else:
+        #     PENALTY = 0
+
+        PENALTY = 0
 
 
         ####

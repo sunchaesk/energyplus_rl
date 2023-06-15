@@ -83,18 +83,24 @@ class Actor(nn.Module):
         return action, log_prob
 
 
-    def get_action(self, state):
+    def get_action(self, state, mask):
         """
         returns the action based on a squashed gaussian policy. That means the samples are obtained according to:
         a(s,e)= tanh(mu(s)+sigma(s)+e)
+
+        NOTE: for action masking, action range is clamped before sampled from distribution
         """
         #state = torch.FloatTensor(state).to(device) #.unsqzeeze(0)
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1)
+        dist = Normal(0, 1) # loc, scale
+        #print('dist', dist)
         e      = dist.sample().to(device)
         action = torch.tanh(mu + e * std).cpu()
-        #action = torch.clamp(action*action_high, action_low, action_high)
+        #print(action)
+
+        #NOTE: action masking
+        action = torch.clamp(action, mask[0], mask[1])
         return action[0]
 
 
@@ -186,10 +192,12 @@ class Agent():
             self.learn(step, experiences, GAMMA)
 
 
-    def act(self, state):
-        """Returns actions for given state as per current policy."""
+    def act(self, state, mask):
+        """Returns actions for given state as per current policy.
+        mask: tuple(low_action_bound, high_action_bound)
+        """
         state = torch.from_numpy(state).float().to(device)
-        action = self.actor_local.get_action(state).detach()
+        action = self.actor_local.get_action(state, mask).detach()
         return action
 
     def learn(self, step, experiences, gamma, d=1):
@@ -352,8 +360,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         except:
             print('ERROR loading model... starting training from scratch')
 
-    # for i_episode in range(start_episode + 1, n_episodes+1):
-    for i_episode in range(1):
+    for i_episode in range(start_episode + 1, n_episodes+1):
+    # for i_episode in range(1):
 
         state = env.reset()
         state = state.reshape((1,state_size))
@@ -373,13 +381,9 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         action_after_clip = []
 
         while not done:
+            mask = env.masking_valid_actions(scale=(-1, 1))
 
-            temp  = env.masking_valid_actions(scale=(-1,1))
-            print('temp', temp)
-            temp2 = tuple([env._rescale(temp[0], -1, 1, 15, 30), env._rescale(temp[1], -1, 1, 15, 30)])
-            print('temp2', temp2)
-
-            action = agent.act(state)
+            action = agent.act(state, mask)
             action_pre_clip = action.numpy()
             action_v = np.clip(action_pre_clip*action_high, action_low, action_high)
             #print(action_v)
@@ -393,6 +397,7 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             # DEBUG
             action_before_clip.append(action_pre_clip[0])
             rewards.append(reward)
+            comfort.append(info['comfort_reward'])
                 # temp = env.masking_valid_actions()
                 # comfort_bound_high.append(temp[1])
                 # comfort_bound_low.append(temp[0])
@@ -411,8 +416,6 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
 
         # DEBUG
         env.pickle_save_pmv_cache()
-        print('SYS EXIT')
-        sys.exit(1)
         start = 0
         end = 300
         x = list(range(end - start))
@@ -423,12 +426,17 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         # print(act)
 
         fig, ax1 = plt.subplots()
-        ax1.set_title('First 300 steps of training episode 1')
+        ax1.set_title('First 300 steps of training episode {}'.format(i_episode))
         ax1.scatter(x[start:end], act[start:end], color='red')
-        ax1.axhline(-1, color='black', linestyle='--')
-        ax1.axhline(1, color='black', linestyle='--')
+
+        ax2 = ax1.twinx()
+        ax2.plot(x[start:end], comfort[start:end], color='blue', linestyle='-')
+        ax2.axhline(0.7, color='black', linestyle='--')
+        ax2.axhline(-0.7, color='black', linestyle='--')
         fig.tight_layout()
-        #plt.show()
+        plt.show()
+        time.sleep(1)
+        plt.close('all')
 
         scores_deque.append(score)
         # writer.add_scalar("Reward", score, i_episode)
@@ -487,7 +495,7 @@ default_args = {'idf': '../in.idf',
                 'annual': False,
                 'start_date': (6,21),
                 'end_date': (8,21),
-                'pmv_pickle_available': False,
+                'pmv_pickle_available': True,
                 'pmv_pickle_path': './pmv_cache.pickle'
                 }
 
@@ -503,7 +511,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 3000
+    FIXED_ALPHA = 2500
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')
@@ -534,7 +542,7 @@ if __name__ == "__main__":
         agent.actor_local.load_state_dict(torch.load(saved_model))
         play()
     else:
-        SAC(n_episodes=args.ep, max_t=100000, print_every=args.print_every,load=True)
+        SAC(n_episodes=110, max_t=100000, print_every=args.print_every,load=True)
     t1 = time.time()
     env.close()
     print("training took {} min!".format((t1-t0)/60))

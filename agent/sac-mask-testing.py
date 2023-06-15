@@ -111,18 +111,24 @@ class Actor(nn.Module):
         return action, log_prob
 
 
-    def get_action(self, state):
+    def get_action(self, state, mask):
         """
         returns the action based on a squashed gaussian policy. That means the samples are obtained according to:
         a(s,e)= tanh(mu(s)+sigma(s)+e)
+
+        NOTE: for action masking, action range is clamped before sampled from distribution
         """
         #state = torch.FloatTensor(state).to(device) #.unsqzeeze(0)
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1)
+        dist = Normal(0, 1) # loc, scale
+        #print('dist', dist)
         e      = dist.sample().to(device)
         action = torch.tanh(mu + e * std).cpu()
-        #action = torch.clamp(action*action_high, action_low, action_high)
+        #print(action)
+
+        #NOTE: action masking
+        action = torch.clamp(action, mask[0], mask[1])
         return action[0]
 
 
@@ -214,10 +220,12 @@ class Agent():
             self.learn(step, experiences, GAMMA)
 
 
-    def act(self, state):
-        """Returns actions for given state as per current policy."""
+    def act(self, state, mask):
+        """Returns actions for given state as per current policy.
+        mask: tuple(low_action_bound, high_action_bound)
+        """
         state = torch.from_numpy(state).float().to(device)
-        action = self.actor_local.get_action(state).detach()
+        action = self.actor_local.get_action(state, mask).detach()
         return action
 
     def learn(self, step, experiences, gamma, d=1):
@@ -381,7 +389,8 @@ def test():
         state = state.reshape((1, state_size))
 
         while True:
-            action = agent.act(state)
+            mask = env.masking_valid_actions()
+            action = agent.act(state, mask)
             print('action')
             action_v = action[0].numpy()
             action_v = np.clip(action_v * action_high, action_low, action_high)
