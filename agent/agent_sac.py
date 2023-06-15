@@ -435,6 +435,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         ax2.axhline(-0.7, color='black', linestyle='--')
         fig.tight_layout()
         plt.show()
+        time.sleep(1)
+        plt.close('all')
 
         scores_deque.append(score)
         # writer.add_scalar("Reward", score, i_episode)
@@ -509,7 +511,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 0.1
+    FIXED_ALPHA = 2500
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')
@@ -540,7 +542,7 @@ if __name__ == "__main__":
         agent.actor_local.load_state_dict(torch.load(saved_model))
         play()
     else:
-        SAC(n_episodes=args.ep, max_t=100000, print_every=args.print_every,load=True)
+        SAC(n_episodes=110, max_t=100000, print_every=args.print_every,load=True)
     t1 = time.time()
     env.close()
     print("training took {} min!".format((t1-t0)/60))
