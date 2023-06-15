@@ -558,6 +558,15 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
+    def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
+        '''
+        _rescale already implemented for EnergyPlusRunner class, but for convenience, implemented
+        for EnergyPlusEnv
+        '''
+        old_range = old_range_max - old_range_min
+        new_range = new_range_max - new_range_min
+        return (((action - old_range_min) * new_range) / old_range) + new_range_min
+
     def pickle_save_pmv_cache(self):
         '''
         if pmv_pickle_avaiable is True -> self.using_pmv_cache is True
@@ -572,7 +581,7 @@ class EnergyPlusEnv(gym.Env):
             p = pickle.load(handle)
             self.PMV_CACHE = p
 
-    def masking_valid_actions(self) -> tuple:
+    def masking_valid_actions(self, scale:tuple =(-1, 1)) -> tuple:
         '''
         for Policy Gradient methods, find valid action values of the indoor air temperature
         NOTE: valid action value will be
@@ -580,6 +589,8 @@ class EnergyPlusEnv(gym.Env):
         to the current time step
 
         has caching feature to self.PMV_CACHE. Cache is statically saved to self.PMV_CACHE_PATH
+
+        NOTE: note that the function returns the scaled values
         '''
         #print("HITTTTT")
         def f(x):
@@ -602,13 +613,16 @@ class EnergyPlusEnv(gym.Env):
             if f(x + 15) < 0:
                 pivot = x + 15
         if pivot == None:
-            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (15, 30)
-            return (15, 30)
+            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = scale
+            #return (15, 30)
+            return scale
         else:
             root1 = scipy.optimize.brentq(f, pivot, pivot + 10)
             root2 = scipy.optimize.brentq(f, pivot, pivot - 10)
-            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (root2, root1)
-            return (root2, root1) # tuple([lower root, higher root])
+            root1_scaled = self._rescale(root1, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
+            root2_scaled = self._rescale(root2, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
+            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (root2_scaled, root1_scaled)
+            return (root2_scaled, root1_scaled) # tuple([lower root, higher root])
 
 
     def retrieve_actuators(self):

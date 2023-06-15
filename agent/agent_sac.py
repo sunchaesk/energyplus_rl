@@ -374,8 +374,10 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
 
         while not done:
 
-            temp  = env.masking_valid_actions()
+            temp  = env.masking_valid_actions(scale=(-1,1))
             print('temp', temp)
+            temp2 = tuple([env._rescale(temp[0], -1, 1, 15, 30), env._rescale(temp[1], -1, 1, 15, 30)])
+            print('temp2', temp2)
 
             action = agent.act(state)
             action_pre_clip = action.numpy()
@@ -409,6 +411,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
 
         # DEBUG
         env.pickle_save_pmv_cache()
+        print('SYS EXIT')
+        sys.exit(1)
         start = 0
         end = 300
         x = list(range(end - start))
@@ -480,10 +484,10 @@ default_args = {'idf': '../in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2,
-                'annual': False,# for some reasons if not annual, funky results
+                'annual': False,
                 'start_date': (6,21),
                 'end_date': (8,21),
-                'pmv_pickle_available': True,
+                'pmv_pickle_available': False,
                 'pmv_pickle_path': './pmv_cache.pickle'
                 }
 
