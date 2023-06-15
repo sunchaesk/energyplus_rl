@@ -26,7 +26,9 @@ default_args = {'idf': '../in.idf',
                 'num_workers': 2,
                 'annual': False,# for some reasons if not annual, funky results
                 'start_date': (6,21),
-                'end_date': (8,21)
+                'end_date': (8,21),
+                'pmv_pickle_available': True,
+                'pmv_pickle_path': 'pmv_cache.pickle'
                 }
 
 import agent_sac
@@ -40,6 +42,7 @@ BATCH_SIZE = agent_sac.args.batch_size
 LR_ACTOR = agent_sac.args.lr
 LR_CRITIC = agent_sac.args.lr
 FIXED_ALPHA = agent_sac.args.alpha
+FIXED_ALPHA = 0.1
 seed = agent_sac.args.seed
 
 env = base.EnergyPlusEnv(default_args)
@@ -379,6 +382,7 @@ def test():
 
         while True:
             action = agent.act(state)
+            print('action')
             action_v = action[0].numpy()
             action_v = np.clip(action_v * action_high, action_low, action_high)
             # next_state, reward, done, truncated, info = env.step([action_v])
