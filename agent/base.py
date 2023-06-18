@@ -1,6 +1,4 @@
-# pip installed ray, tabulate, tree
 # pip uninstalled ''
-import argparse
 import sys
 import os
 import threading
@@ -13,8 +11,8 @@ import time
 
 import random
 
-import scipy
-import pickle
+# import scipy
+# import pickle
 
 import gymnasium as gym
 import numpy as np
@@ -24,71 +22,6 @@ sys.path.insert(0, '/home/ck/Downloads/EnergyPlus-23.1.0-87ed9199d4-Linux-CentOS
 from pyenergyplus.api import EnergyPlusAPI
 from pyenergyplus.datatransfer import DataExchange
 
-'''
-
-TODO ask
-- diffuse solar radiation, wall or window?
-
-TODO Testing Stuff:
-- action values
-- observation stuff
-
-CURR TODO/DONE for this week:
-'''
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--idf",
-        help="Path to .idf file",
-        required=True
-    )
-    parser.add_argument(
-        "--epw",
-        help="Path to weather file",
-        required=True
-    )
-    parser.add_argument(
-        "--csv",
-        help="Generate eplusout.csv at end of simulation",
-        required=False,
-        default=False,
-        action="store_true"
-    )
-    parser.add_argument(
-        "--output",
-        help="EnergyPlus output directory. Default is a generated one in /tmp/",
-        required=False,
-        default=TemporaryDirectory().name
-    )
-    parser.add_argument(
-        "--timesteps", "-t",
-        help="Number of timesteps to train",
-        required=False,
-        default=1e6
-    )
-    parser.add_argument(
-        "--num-workers",
-        type=int,
-        default=2,
-        help="The number of workers to use",
-    )
-    parser.add_argument(
-        "--alg",
-        default="PPO",
-        choices=["APEX", "DQN", "IMPALA", "PPO", "R2D2"],
-        help="The algorithm to use",
-    )
-
-    built_args = parser.parse_args()
-    #print(f"Running with following CLI args: {built_args}")
-    return built_args
-
-#zone mean air temperature
-# mean radiant temperature
-# relative humidity
-# radiant
-# diffuse
 
 class EnergyPlusRunner:
 
@@ -112,128 +45,30 @@ class EnergyPlusRunner:
         self.request_variable_complete = False
 
 
-        # self.energyplus_api.exchange.request_variable(self.state, "SITE OUTDOOR AIR DRYBULB TEMPERATURE", "ENVIRONMENT")
-        # self.energyplus_api.exchange.request_variable(self.energyplus_state, "Surface Outside Face Solar Radiation Heat Gain Rate per Area", "living_unit1")
-        # self.energyplus_api.exchange.request_variable(self.energyplus_state, "Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "living_unit1")
 
         # below is declaration of variables, meters and actuators
         # this simulation will interact with
         self.variables = {
-            # °C
             "outdoor_temp" : ("Site Outdoor Air Drybulb Temperature", "Environment"),
-            # solar radiation
-            # beam radiant
-            # diffused radiant
-            # °C
             "indoor_temp_living" : ("Zone Air Temperature", 'living_unit1'),
-            # °C
-            # "indoor_temp_attic": ("Zone Air Temperature", 'attic_unit1'), # NOTE: air temperature already have? NOTE: attic temp not needed?
-
-            # °C, surface area times emissivity
             "mean_radiant_temperature_living": ("Zone Mean Radiant Temperature", "living_unit1"),
-
-            # %, air relative humidity after the correct step for each zone
             "relative_humidity_living": ("Zone Air Relative Humidity", "living_unit1"),
-
-            # m/s air velocity
-            # "air_velocity_living": ("", ""),
-
-            #  Diffuse Radiation [W]
-            #'interior_diffuse_radiation_living' : ('Zone Interior Windows Total Transmitted Diffuse Solar Radiation Rate', 'living_unit1'), #NOTE, interior window is not present in the model
-            #########'exterior_diffuse_radiation_living' : ('Zone Exterior Windows Total Transmitted Diffuse Solar Radiation Rate', 'living_unit1'),
-            # "solar_radiation_ldf1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldf_1.unit1"),
-            # "solar_radiation_ldf2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldf_2.unit1"),
-            # "solar_radiation_ldb1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldb_1.unit1"),
-            # "solar_radiation_ldb2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldb_2.unit1"),
-
-            # "solar_radiation_ldf1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Window_ldf_1.unit1"),
-            # "solar_radiation_ldf2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Window_ldf_2.unit1"),
-            # "solar_radiation_ldb1": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Window_ldb_1.unit1"),
-            # "solar_radiation_ldb2": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Window_ldb_2.unit1"),
-            # "solar_radiation_floor": ("Surface Outside Face Solar Radiation Heat Gain Rate per Area", "Inter zone floor 1"),
-            # "solar_radiation_ldr1": ("Surface Inside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldr_1.unit1"),
-            # "solar_radiation_ldr2": ("Surface Inside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldr_2.unit1"),
-            # "solar_radiation_ldl1": ("Surface Inside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldl_1.unit1"),
-            # "solar_radiation_ldl2": ("Surface Inside Face Solar Radiation Heat Gain Rate per Area", "Wall_ldl_2.unit1"),
-
-            # Beam Radiation [W]
-            #'interior_beam_radiation_living': ('Zone Interior Windows Total Transmitted Beam Solar Radiation Rate', 'living_unit1'), # NOTE, interior window not present
-            #####'exterior_beam_radiation_living': ('Zone Exterior Windows Total Transmitted Beam Solar Radiation Rate', 'living_unit1')
-            # "test_ldf1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldf_1.unit1"),
-            # "test_ldf2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
-            # "test_ldb1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
-            # "test_ldb2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
-            # "beam_radiation_ldf1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldf_1.unit1"),
-            # "beam_radiation_ldf2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldf_2.unit1"),
-            # "beam_radiation_ldb1": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldb_1.unit1"),
-            # "beam_radiation_ldb2": ("Surface Inside Face Exterior Windows Incident Beam Solar Radiation Rate per Area", "Wall_ldb_2.unit1"),
-
-            # Direct Solar Radiation Rate per Area [W/m^2]
-            # Diffuse Solar Radiation Rate per Area [W/m^2]
-
-            # Sky Diffuse Solar Radiation [W/m^2]
-            # NOTE value of ldf1 == value of ldf2
-            # NOTE value of ldb1 == value of ldb2
-            # 'sky_diffuse_solar_ldf1': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldf_1.unit1"),
-            # 'sky_diffuse_solar_ldf2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
-            # 'sky_diffuse_solar_ldb1': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
-            # 'sky_diffuse_solar_ldb2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
-            # DONE: since they are same reduce the # of varialbes to:
             'sky_diffuse_solar_ldf': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
-            #'sky_diffuse_solar_ldb': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldb_1.unit1'),
-            # DONE
             'sky_diffuse_solar_sdr': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
-            #'sky_diffuse_solar_sdl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
-
-            # Ground Diffuse Solar Radiation [W/m^2]
-            # NOTE value of ldf1 == ldf2 == ldb1 == ldb2
-            # 'ground_diffuse_solar_ldf1': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldf_1.unit1"),
-            # 'ground_diffuse_solar_ldf2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldf_2.unit1"),
-            # 'ground_diffuse_solar_ldb1': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
-            # 'ground_diffuse_solar_ldb2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
-            # NOTE: they all yield same value so narrow them to single var:
-            # 'ground_diffuse_solar': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
-            # 'ground_diffuse_solar_2': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
-            # 'ground_diffuse_solar_3': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
-
-            # DONE DONE
             'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment"),
             'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment"),
-
-            #'test_ldl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldl_1.unit1'),
-            # 'diffuse_solar_ldf2': ("", ""),
-            # 'diffuse_solar_ldb1': ("", ""),
-            # 'diffuse_solar_ldb2': ("", "")
-            # Horizontal Infrared Radiation Rate per Area [W/m^2]
         }
         self.var_handles: Dict[str, int] = {}
 
         self.meters = {
-            # HVAC elec (J)
             "elec_hvac": "Electricity:HVAC",
-            # Heating
             "elec_heating": "Heating:Electricity",
-            # Cooling
             "elec_cooling": "Cooling:Electricity",
-
             'elec_facility': "Electricity:Facility",
-
-            # probably not need based on html output NOTE: meter handle not found
-            # 'gas_heating': 'NaturalGas:HVAC',
-
-            # District heating (J)
-            # "dh": "Heating:DistrictHeating"
         }
         self.meter_handles: Dict[str, int] = {}
 
         self.actuators = {
-            # NOTE: ZoneControl:Thermostat
-            # supply air temperature setpoint (°C)
-            # "sat_spt": (
-            #     "System Node Setpoint",
-            #     "Temperature Setpoint",
-            #     "zone node_unit1"
-            # ),
             "cooling_actuator_living" : (
                 "Zone Temperature Control",
                 "Cooling Setpoint",
@@ -245,10 +80,6 @@ class EnergyPlusRunner:
                 "Heating Setpoint",
                 "living_unit1"
             )
-
-            # "test" : (
-            #     "Zone"
-            # )
         }
         self.actuator_handles: Dict[str, int] = {}
 
@@ -256,15 +87,11 @@ class EnergyPlusRunner:
         self.energyplus_state = self.energyplus_api.state_manager.new_state()
         runtime = self.energyplus_api.runtime
 
-        # requesting variables
+        # requesting variables to E+ to be avaiable during runtime
         if not self.request_variable_complete:
             for key, var in self.variables.items():
                 self.x.request_variable(self.energyplus_state, var[0], var[1])
                 self.request_variable_complete = True
-                # (below) old way to request var
-                # self.energyplus_api.exchange.request_variable(self.energyplus_state, "SITE OUTDOOR AIR DRYBULB TEMPERATURE", "ENVIRONMENT")
-                # self.energyplus_api.exchange.request_variable(self.energyplus_state, "ZONE AIR TEMPERATURE", "LIVING_UNIT1")
-                # self.energyplus_api.exchange.request_variable(self.energyplus_state, "ZONE AIR TEMPERATURE", "ATTIC_UNIT1")
 
         # register callback used to track simulation progress
         def report_progress(progress: int) -> None:
@@ -316,7 +143,6 @@ class EnergyPlusRunner:
         self.curr = datetime.now().strftime("%d/%m/%Y-%H:%M:%S")
         eplus_args = ["-r"] if self.env_config.get("csv", False) else []
         eplus_args += ['-x']
-        # eplus_args += ['-a'] # NOTE: enforces simulation to be annual (runtime start = Jan1)
 
         eplus_args += ["-a"] if self.env_config.get('annual', False) else []
         eplus_args += [
@@ -356,20 +182,12 @@ class EnergyPlusRunner:
             # print('HIT COLLECT OBS')
             return
 
-        # print("# OBS living",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living']))
-        # print("# OBS attic",self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_attic']))
-
         self.next_obs = {
             **{
                 key: self.x.get_variable_value(state_argument, handle)
                 for key, handle
                 in self.var_handles.items()
             },
-            # **{
-            #     key: self.x.get_meter_value(state_argument, handle)
-            #     for key, handle
-            #     in self.meter_handles.items()
-            # }
         }
         self.obs_queue.put(self.next_obs)
 
@@ -386,25 +204,16 @@ class EnergyPlusRunner:
         EnergyPlus callback that sets actuator value from last decided action
         """
         if self.simulation_complete or not self._init_callback(state_argument):
-            # print('HIT SEND ACTIONS')
             return
 
         if self.act_queue.empty():
             return
         next_action = self.act_queue.get()[0]
-        next_action = self._rescale(next_action, -1, 1, 15, 30)
-        # print('######')
-        # print('next:', next_action)
-        # print('######')
+        #next_action = self._rescale(next_action, -1, 1, 15, 30)
+
         assert isinstance(next_action, float) or isinstance(next_action, np.float32) # for Box action space, next_action dtype will be float32
         assert next_action >= 15
 
-        #print(next_action)
-        # self.x.set_actuator_value(
-        #     state=state_argument,
-        #     actuator_handle=self.actuator_handles["sat_spt"],
-        #     actuator_value=next_action
-        # )
         self.x.set_actuator_value(
             state=state_argument,
             actuator_handle=self.actuator_handles['cooling_actuator_living'],
@@ -417,40 +226,19 @@ class EnergyPlusRunner:
             actuator_value=0 # NOTE: set it to a extreme low temp so it's never triggered
             # actuator_value=15.0
         )
-        #SCORES:  [20538820133.84012, 20538820133.84012]
-        temp1 = self.x.get_actuator_value(state_argument,self.actuator_handles['cooling_actuator_living'])
-        temp2 = self.x.get_actuator_value(state_argument, self.actuator_handles['heating_actuator_living'])
-        indoor = self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living'])
-        # print('##', temp1, temp2)
-        # print('#####', indoor)
-        #print('## ACTUATOR VAL:', temp)
 
     def _init_callback(self, state_argument) -> bool:
         """initialize EnergyPlus handles and checks if simulation runtime is ready"""
         self.initialized = self._init_handles(state_argument) and not self.x.warmup_flag(state_argument)
-        # print('INIT HANDLES: ', self._init_handles(state_argument))
-        # print('WARMUP FLAGS: ', self.x.warmup_flag(state_argument))
-        # print('BOTH???', self._init_handles(state_argument) and self.x.warmup_flag(state_argument))
-        # print(self.initialized)
         return self.initialized
 
     #  DONE NOTE: some error with multiple request of handles -> WARNINGS for now but good to fix
     def _init_handles(self, state_argument):
         """initialize sensors/actuators handles to interact with during simulation"""
-        # print(self.initialized)
         if not self.initialized:
-            # print('WHY')
             if not self.x.api_data_fully_ready(state_argument):
                 return False
 
-            # requires requesting variables to energyplus
-            # self.x.request_variable(state_argument, "Site Outdoor Air Drybulb Temperature", "Environment")
-            # self.x.request_variable(state_argument, "Zone Air Temperature", "living_unit1")
-            # self.x.request_variable(state_argument, "Zone Air Temperature", "attic_unit1")
-
-            # print("###### HIT ######")
-            # print(self.initialized == True)
-            # print("HIIIIITTTT")
 
             self.var_handles = {
                 key: self.x.get_variable_handle(state_argument, *var)
@@ -486,7 +274,6 @@ class EnergyPlusRunner:
 
             self.init_queue.put("")
             self.initialized = True
-            # print('THIS SHOULD BE TRUE:', self.initialized)
 
         return True
 
@@ -500,39 +287,22 @@ class EnergyPlusRunner:
 
 class EnergyPlusEnv(gym.Env):
 
-    '''
-    # OAT, IAT, CO2, cooling setpoint, heating setpoint, fans elec, district heating
-    '''
     def __init__(self, env_config: Dict[str, Any]):
         self.env_config = env_config
         self.episode = -1
         self.timestep = 0
-        # self.start_date = env_config['start_date']
-        # self.end_date = env_config['end_date']
-        self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
-        self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
+        # self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
+        # self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
 
         self.acceptable_pmv = 0.7
 
-        # Caching PMV values to accelerate
-        # NOTE: key: (tr, rh), val : (low, high)
         self.using_pmv_cache = env_config['pmv_pickle_available']
         self.PMV_CACHE = dict()
         self.PMV_CACHE_PATH = env_config['pmv_pickle_path']
         if self.using_pmv_cache:
             self.pickle_load_pmv_cache()
 
-        # observation space:
-        # outdoor_temp, indoor_temp_living, mean_radiant_temperature_living, relative_humidity_living, exterior_diffuse_radiation_living, exterior_beam_radiation_living
-        # NOTE: I am unsure about the actual bound -> set as larger than expected values
-        # TODO update this stuff
-        # low_obs = np.array(
-        #     [-100.0, -100.0, -100.0, 0, 0]
-        # )
-        # hig_obs = np.array(
-        #     [100.0, 100.0, 100.0, 100.0, 100000000.0]
-        # )
         low_obs = np.array(
             [-100.0, -100.0, -100.0, 0, 0, 0, 0, 0]
         )
@@ -550,7 +320,6 @@ class EnergyPlusEnv(gym.Env):
 
         self.prev_obs = None
 
-        # action space: np.linspace(15,30,0.1)
         self.action_space: Box = Box(np.array([15]), np.array([30]), dtype=np.float32)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
@@ -582,17 +351,6 @@ class EnergyPlusEnv(gym.Env):
             self.PMV_CACHE = p
 
     def masking_valid_actions(self, scale:tuple =(-1, 1)) -> tuple:
-        '''
-        for Policy Gradient methods, find valid action values of the indoor air temperature
-        NOTE: valid action value will be
-        NOTE: make sure this function is called after the obs_vec has been updated
-        to the current time step
-
-        has caching feature to self.PMV_CACHE. Cache is statically saved to self.PMV_CACHE_PATH
-
-        NOTE: note that the function returns the scaled values
-        '''
-        #print("HITTTTT")
         def f(x):
             tr = self.last_next_state[2]
             rh = self.last_next_state[3]
@@ -626,8 +384,9 @@ class EnergyPlusEnv(gym.Env):
 
 
     def retrieve_actuators(self):
-        #temp1 = self.x.get_actuator_value(state_argument,self.actuator_handles['cooling_actuator_living'])
-        #temp2 = self.x.get_actuator_value(state_argument, self.actuator_handles['heating_actuator_living'])
+        '''
+        for debugging purposes: fetches actuator values (cooling, heating)
+        '''
         runner = self.energyplus_runner
         cooling_actuator_value = runner.x.get_actuator_value(runner.energyplus_state, runner.actuator_handles['cooling_actuator_living'])
         heating_actuator_value = runner.x.get_actuator_value(runner.energyplus_state, runner.actuator_handles['heating_actuator_living'])
@@ -642,9 +401,6 @@ class EnergyPlusEnv(gym.Env):
         self.last_obs = self.observation_space.sample()
 
         if self.energyplus_runner is not None:
-            # print('EEEEEEEEEEEEEEEEEEEEEEEE')
-            # print('STOPPPP')
-            # print('EEEEEEEEEEEEEEEEEEEEEEEE')
             self.energyplus_runner.stop()
 
         # observations and actions queues for flow control
@@ -676,37 +432,37 @@ class EnergyPlusEnv(gym.Env):
 
         obs_vec = np.array(list(obs.values()))
 
-        # update the self.last_next_state
         self.last_next_state = obs_vec
 
         return obs_vec
-    #return np.array(list(obs.values())), np.array(list(meter.values())) #
 
     def step(self, action):
         '''
         @params: action -> numpy.ndarray w/ 1 element
         '''
-        # simulation time values
-        #current_time = self.energyplus_runner.x.current_sim_time(self.energyplus_runner.energyplus_state)
-        # current_date = self.energyplus_runner.x.day_of_month()
-        # current_month = self.energyplus_runner.x.day_of_year()
+        year = self.energyplus_runner.x.year(self.energyplus_runner.energyplus_state)
+        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
+        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
+        minute = self.energyplus_runner.x.minutes(self.energyplus_runner.energyplus_state)
+        day_of_week = self.energyplus_runner.x.day_of_week(self.energyplus_runner.energyplus_state)
+        print('time', month, day, hour, minute)
+
+        if self.timestep == 0:
+            # calibrate start time
+            self.timestep = int((minute / 10) - 1)
+
         self.timestep += 1
         done = False
+
 
         # check for simulation errors
         if self.energyplus_runner.failed():
             print(f"EnergyPlus failed with {self.energyplus_runner.sim_results['exit_code']}")
             sys.exit(1)
 
-        # rescale agent decision to actuator range
-        # sat_spt_value = self._rescale(
-        #     n=int(action),  # noqa
-        #     range1=(0, self.action_space.n),
-        #     range2=(15, 30)
-        # )
-        #sat_spt_value = self._rescale(int(action)) # maybe need int(action)
-        #sat_spt_value = action[0]
-        sat_spt_value = np.float32(action)
+        action = np.float32(action)
+        #print('action', action)
 
         # enqueue action (received by EnergyPlus through dedicated callback)
         # then wait to get next observation.
@@ -716,23 +472,24 @@ class EnergyPlusEnv(gym.Env):
         # timeout value can be increased if E+ warmup period is longer or if step takes longer
         timeout = 2
         try:
-            self.act_queue.put(sat_spt_value, timeout=timeout)
+            self.act_queue.put(action, timeout=timeout)
             self.last_obs = obs = self.obs_queue.get(timeout=timeout)
             self.last_meter = meter = self.meter_queue.get(timeout=timeout)
         except (Full, Empty):
             done = True
             obs = self.last_obs
             meter = self.last_meter
-            # NOTE: from this point below, obs is updated
-            # noticed cases where obs are same as prev (some bottleneck with simulation)
-        obs_vec = np.array(list(obs.values()))
-        # if obs_vec == self.prev_obs:
-        if  (obs_vec == self.prev_obs).all():
-            print('########')
-            print("SAME OBS!")
-            print('########')
-            return None, 0, None, None, None
 
+
+        obs_vec = np.array(list(obs.values()))
+
+        # curr_temp = obs_vec[0]
+        # print('curr temp', curr_temp)
+        # print('next_temp', self.energyplus_runner.x.api.todayWeatherOutDryBulbAtTime(self.energyplus_runner.energyplus_state, 0, self.energyplus_runner.x.zone_time_step_number(self.energyplus_runner.energyplus_state)))
+        # print('eee', self.energyplus_runner.x.zone_time_step(self.energyplus_runner.energyplus_state))
+        # test = self.energyplus_runner.x.api.todayWeatherOutDryBulbAtTime(self.energyplus_runner.energyplus_state, 0, self.energyplus_runner.x.zone_time_step(self.energyplus_runner.energyplus_state))
+        # print('check', obs_vec[0])
+        # print('test', test)
 
         # update the self.last_next_state
         self.last_next_state = obs_vec
@@ -743,87 +500,36 @@ class EnergyPlusEnv(gym.Env):
         reward_thermal_comfort = self._compute_reward_thermal_comfort(
             obs_vec[1],
             obs_vec[2],
-            0.1, #NOTE: for now set as 0.1, but find if E+ can generate specific values
+            0.1, # air velocity
             obs_vec[3]
         )
 
-        # NOTE: HARD-spiking penalty
-        # PENALTY = None
-        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
-        #     PENALTY = -1e20
-        # else:
-        #     PENALTY = 0
 
-        #NOTE: soft-penalty sigmoid with adjustable penalty param
-        # PENALTY_COEFF = -7000
-        # def penalty_sigmoid(x):
-        #     return PENALTY_COEFF * (1 / (1 + math.exp(-(x-0))))
-        # PENALTY = None
-        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
-        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
-        #     PENALTY = penalty_sigmoid(penalty_factor)
-        #     print('pen', PENALTY)
-        # else:
-        #     PENALTY = 0
-
-        # NOTE: soft-penalty linear
-        # PENALTY = None
-        # PENALTY_COEFF = -22000
-        # def penalty_linear(pmv_diff):
-        #     return PENALTY_COEFF * pmv_diff
-        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
-        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
-        #     PENALTY = penalty_linear(penalty_factor)
-        #     #print('pen', PENALTY, penalty_factor)
-        # else:
-        #     PENALTY = 0
-
+        # PENALTY
+        # NOTE: penalty is added to reward -> penalty to discourage agent should have negative value
         PENALTY = 0
 
 
-        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
-        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
-
-        # NOTE: -a flag is required therefore, manually alter the runtime
-        #print('DATE', month, day)
-        # curr_date = datetime(2000, month, day)
-        # if curr_date < self.start_date:
-        #     # if before simulation start date -> return 0 as reward
-        #     return obs_vec, 0, False, False, {'date': (month, day),
-        #                                       'actuators': self.retrieve_actuators(),
-        #                                       'energy_reward': reward_energy,
-        #                                       'comfort_reward': reward_thermal_comfort}
-        # if curr_date > self.end_date:
-        #     # if past simulation end date -> done = True
-        #     # actuators[0] -> cooling, actuators[1] -> heating
-        #     return obs_vec, (reward_energy + PENALTY), True, False, {'date': (month, day),
-        #                                                              'actuators' : self.retrieve_actuators(),
-        #                                                              'energy_reward': reward_energy,
-        #                                                              'comfort_reward': reward_thermal_comfort}
-
-
-        # this won't always work (reason for queue timeout), as simulation
-        # sometimes ends with last reported progress at 99%.
-        # NOTE: changed this to 99
-        #print("PROGRESS: ", self.energyplus_runner.progress_value)
+        # NOTE: changed this to 99 but 100 works fine also
         if self.energyplus_runner.progress_value == 99:
             print("reached end of simulation")
             done = True
 
-        # print('THERMAL COMFORT:', thermal_comfort)
 
-        #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
-        return obs_vec, (reward_energy + PENALTY), done, False, {'date': (month, day),
-                                                                 'actuators' : self.retrieve_actuators(),
-                                                                 'energy_reward': reward_energy,
-                                                                 'comfort_reward': reward_thermal_comfort}
+        return obs_vec, (reward_energy + PENALTY), done, False, {
+            'actuators' : self.retrieve_actuators(),
+            'energy_reward': reward_energy,
+            'comfort_reward': reward_thermal_comfort}
 
     def b_during_sim(self):
         '''
+        DEPRECATED
         ret boolean value of whether sim is running/not
         '''
         month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
         day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energplus_state)
+        minute = self.energyplus_runner.x.minute(self.energyplus_runner.energplus_state)
         curr_date = datetime(2000, month, day)
         if curr_date < self.start_date or curr_date > self.end_date:
             return False
@@ -968,30 +674,25 @@ class EnergyPlusEnv(gym.Env):
                 return np.where(met > 1, np.around(clo * (0.6 + 0.4 / met), 3), clo)
 
 
-        #
-        clo_dynamic = 0.443 # precomputed with the clo value of 0.5 (clo_dynamic(0.5, 1.4))
-        v_rel = v_relative(v, 1.4)
-        #print('V_REL', v_rel)
-        pmv = pmv_ppd_optimized(tdb, tr, 0.1, rh, 1.4, clo_dynamic, 0)
-        # now calc and return ppd
+        clo = 0.5 # precomputed with the clo value of 0.5 (clo_dynamic(0.5, 1.4))
+        #v_rel = v_relative(v, 1.4)
+        pmv = pmv_ppd_optimized(tdb, tr, 0.1, rh, 1.4, clo, 0)
         return pmv
-    #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
+    #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0)) # NOTE: for PPD
 
     @staticmethod
     def _compute_reward_energy(meter: Dict[str, float]) -> float:
+        """compute reward scalar (Joules)"""
+        reward_joules = -1 * meter['elec_cooling']
+        return reward_joules
+
+    @staticmethod
+    def _compute_reward_energy_kilowatts(meter: Dict[str, float]) -> float:
         """compute reward scalar"""
-        #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
-        #reward = -1 * meter['elec_hvac']
-        # reward = obs['elec_heating'] + obs['elec_cooling']
-        # print('REWARD:', reward)
-        # below is reward testing
-        # reward = 10
-        # print("#########################")
-        # print(reward)
-        # print("#########################")
-        reward = -1 * meter['elec_cooling']
-        # reward = meter['elec_cooling']
-        return reward
+        reward_joules = -1 * meter['elec_cooling']
+        reward_watts = reward_joules / (60 * 10)
+        reward_kilowatts = reward_watts / 1000
+        return reward_kilowatts
 
     @staticmethod
     def _compute_reward_cost(meter: Dict[str, float]) -> float:
@@ -1030,6 +731,9 @@ class EnergyPlusEnv(gym.Env):
 
 
 
+
+
+
 # NOTE: have to give in -x flag
 # default_args = {'idf': '/home/ck/Downloads/Files/in.idf',
 #                 'epw': '/home/ck/Downloads/Files/weather.epw',
@@ -1045,15 +749,12 @@ default_args = {'idf': '../in.idf',
                 'output': './output',
                 'timesteps': 1000000.0,
                 'num_workers': 2,
-                'annual': False,# for some reasons if not annual, funky results
-                'start_date': (6,21), # DEPRECATED -> fixed the idf running problem
-                'end_date': (8,21),
-                'pmv_pickle_available': True,
+                'annual': False,
+                'pmv_pickle_available': False,
                 'pmv_pickle_path': './pmv_cache.pickle'
                 }
-# SCORES:  [81884676878.09312, 81884676878.09312]
-#
-#SCORES:  [76613073663.50632, 76613073663.50632]
+
+
 if __name__ == "__main__":
     env = EnergyPlusEnv(default_args)
     print('action_space:', end='')
@@ -1066,14 +767,11 @@ if __name__ == "__main__":
         score = 0
 
         while not done:
-            temp = env.masking_valid_actions()
-            print(temp)
-            # action = env.action_space.sample()
-            # ret = n_state, reward, done, truncated, info = env.step(action)
-            # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
-            # score+=info['energy_reward']
+            action = env.action_space.sample()
+            #print(action)
+            ret = n_state, reward, done, truncated, info = env.step(action)
+            #print('actuators', info['actuators'])
+            score+=info['energy_reward']
 
-        env.pickle_save_pmv_cache()
         scores.append(score)
         print("SCORES: ", scores)
-    print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?

@@ -391,8 +391,11 @@ def test():
         while True:
             mask = env.masking_valid_actions()
             action = agent.act(state, mask)
-            print('action')
+
             action_v = action[0].numpy()
+            # action_v = (mask[1] + mask[0]) / 2
+
+            print(action_v)
             action_v = np.clip(action_v * action_high, action_low, action_high)
             # next_state, reward, done, truncated, info = env.step([action_v])
             next_state, reward, done, truncated, info = env.step([action_v])

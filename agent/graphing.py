@@ -197,6 +197,7 @@ def plot_list(d_list, style='fit'):
                 plt.plot(x_vals, data_list[i], label=d_list[i][1])
 
 
+        plt.axhline(146025024.35006934, color='red', linestyle='dashdot', linewidth=5)
         plt.legend()
         plt.show()
     finally:
@@ -212,8 +213,8 @@ if __name__ == "__main__":
         ('./logs/sac-linear15000.txt', 'linear 15000'),
         ('./logs/sac-linear22000.txt', 'linear 22000')
     ]
-    # plot_list(l, style='fit')
-    plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
+    plot_list(l, style='fit')
+    # plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
     #plot_penalty()
     #plot_horizon()
     #plot_hidden()
