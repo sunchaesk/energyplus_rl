@@ -580,59 +580,6 @@
 
 !-   ===========  ALL OBJECTS IN CLASS: RUNPERIOD ===========
 
-!- https://bigladdersoftware.com/epx/docs/8-9/input-output-reference/group-location-climate-weather-file-access.html#runperiodcustomrange
-!- RunPeriod info
-  ! RunPeriod,
-  !   SummerSimulation         !- Name
-  !   6,                       !- Begin Month
-  !   21,                      !- Begin Day of Month
-  !   ,                        !- Begin Year
-  !   8,                       !- End Month
-  !   21,                      !- End Day of Month
-  !   ,                        !- End Year
-  !   UseWeatherFile,          !- Day of Week for Start Day
-  !   Yes,                     !- Use Weather File Holidays and Special Days
-  !   Yes,                     !- Use Weather File Daylight Saving Period
-  !   No,                      !- Apply Weekend Holiday Rule
-  !   Yes,                     !- Use Weather File Rain Indicators
-  !   Yes,                     !- Use Weather File Snow Indicators
-  !   ;                        !- Treat Weather as Actual
-
-
-! RunPeriod , ! Winter Simulation
-! Winter Simulation , !- Name
-! 12, !- Begin Month
-! 1, !- Begin Day of Month
-! , !- Begin Year
-! 3, !- End Month
-! 31, !- End Day of Month
-! , !- End Year
-! Sunday , !- Day of Week for Start Day
-! Yes, !- Use Weather File Holidays and Special Days
-! Yes, !- Use Weather File Daylight Saving Period
-! No, !- Apply Weekend Holiday Rule
-! Yes, !- Use Weather File Rain Indicators
-! Yes, !- Use Weather File Snow Indicators
-! No, !- Treat Weather as Actual
-! Hour24; !- First Hour Interpolation Starting Values
-
-
-!- RunPeriod setup for summer
-  ! RunPeriod:CustomRange,
-  !   annual,                  !- Name
-  !   6,                       !- Begin Month
-  !   21,                       !- Begin Day of Month
-  !   ,                        !- Begin Year
-  !   8,                      !- End Month
-  !   21,                      !- End Day of Month
-  !   ,                        !- End Year
-  !   Sunday,                  !- Day of Week for Start Day
-  !   Yes,                     !- Use Weather File Holidays and Special Days
-  !   Yes,                     !- Use Weather File Daylight Saving Period
-  !   No,                      !- Apply Weekend Holiday Rule
-  !   Yes,                     !- Use Weather File Rain Indicators
-  !   Yes,                     !- Use Weather File Snow Indicators
-  !   ;                        !- Treat Weather as Actual
 
 RunPeriod,
   annual,                  !- Name

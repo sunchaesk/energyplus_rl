@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal, MultivariateNormal
+from torch.distributions.uniform import Uniform
 
 import torch.optim as optim
 import time
@@ -75,7 +76,7 @@ class Actor(nn.Module):
     def evaluate(self, state, epsilon=1e-6):
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1)
+        dist = Uniform(0, 1 + 1e-9)
         e = dist.sample().to(device)
         action = torch.tanh(mu + e * std)
         log_prob = Normal(mu, std).log_prob(mu + e * std) - torch.log(1 - action.pow(2) + epsilon)
@@ -93,8 +94,7 @@ class Actor(nn.Module):
         #state = torch.FloatTensor(state).to(device) #.unsqzeeze(0)
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1) # loc, scale
-        #print('dist', dist)
+        dist = Uniform(0, 1 + 1e-9)
         e      = dist.sample().to(device)
         action = torch.tanh(mu + e * std).cpu()
         #print(action)
@@ -435,8 +435,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         ax2.axhline(-0.7, color='black', linestyle='--')
         fig.tight_layout()
         plt.show()
-        time.sleep(1)
-        plt.close('all')
+        # time.sleep(1)
+        #plt.close('all')
 
         scores_deque.append(score)
         # writer.add_scalar("Reward", score, i_episode)
