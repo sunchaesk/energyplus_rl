@@ -405,7 +405,7 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             state = next_state
 
             #DEBUG
-            score += info['energy_reward']
+            score += info['cost_reward']
             act.append(action_v[0])
             rewards.append(reward)
             comfort.append(info['comfort_reward'])
@@ -511,7 +511,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 1000
+    FIXED_ALPHA = 3000
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')

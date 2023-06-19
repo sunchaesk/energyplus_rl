@@ -390,8 +390,13 @@ class EnergyPlusRunner:
         'site_horizontal_infrared': 328.0
         }
         '''
-        #print(self.next_obs)
-        return
+        hour = self.x.hour(self.energyplus_state)
+        day_of_week = self.x.day_of_week(self.energyplus_state)
+
+        self.next_obs['day_of_week'] = day_of_week
+        self.next_obs['hour'] = hour
+        #print(type(self.next_obs))
+        return None
 
     def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
         '''
@@ -541,11 +546,13 @@ class EnergyPlusEnv(gym.Env):
         # hig_obs = np.array(
         #     [100.0, 100.0, 100.0, 100.0, 100000000.0]
         # )
+
+        # NOTE: last two elements are: day_of_week (1 : Sunday), hour (0 ~ 24)
         low_obs = np.array(
-            [-100.0, -100.0, -100.0, 0, 0, 0, 0, 0]
+            [-100.0, -100.0, -100.0, 0, 0, 0, 0, 0, 1, 0]
         )
         hig_obs = np.array(
-            [100.0, 100.0, 100.0, 100.0, 100000000.0, 100000000.0, 100000000.0, 100000000.0]
+            [100.0, 100.0, 100.0, 100.0, 100000000.0, 100000000.0, 100000000.0, 100000000.0, 7, 24]
         )
         self.observation_space = gym.spaces.Box(
             low=low_obs, high=hig_obs, dtype=np.float64
@@ -754,6 +761,10 @@ class EnergyPlusEnv(gym.Env):
             0.1, #NOTE: for now set as 0.1, but find if E+ can generate specific values
             obs_vec[3]
         )
+        # compute cost reward
+        reward_cost = self._compute_reward_cost(meter)
+
+        reward = reward_cost
 
         # NOTE: HARD-spiking penalty
         # PENALTY = None
@@ -821,10 +832,12 @@ class EnergyPlusEnv(gym.Env):
         # print('THERMAL COMFORT:', thermal_comfort)
 
         #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
-        return obs_vec, (reward_energy + PENALTY), done, False, {'date': (month, day),
+        return obs_vec, (reward + PENALTY), done, False, {'date': (month, day),
                                                                  'actuators' : self.retrieve_actuators(),
                                                                  'energy_reward': reward_energy,
-                                                                 'comfort_reward': reward_thermal_comfort}
+                                                                 'comfort_reward': reward_thermal_comfort,
+                                                                 'cost_reward': reward_cost
+                                                          }
 
     def b_during_sim(self):
         '''
@@ -992,7 +1005,15 @@ class EnergyPlusEnv(gym.Env):
         return reward
 
     @staticmethod
-    def _compute_reward_cost(meter: Dict[str, float]) -> float:
+    def _compute_reward_energy_kilowatts(meter: Dict[str, float]) -> float:
+        """compute reward scalar"""
+        reward = -1 * meter['elec_cooling']
+        reward_watts = reward / (10 * 60)
+        reward_kilowatts = reward / 1000
+        return reward_kilowatts
+
+    #@staticmethod NOTE: not static method
+    def _compute_reward_cost(self, meter: Dict[str, float]) -> float:
         '''
         NOTE: peak hours and corresponding cost
         ultra-low overnight: Everyday from 11pm to 7am :2.4 C
@@ -1049,9 +1070,8 @@ default_args = {'idf': '../in.idf',
                 'pmv_pickle_available': True,
                 'pmv_pickle_path': './pmv_cache.pickle'
                 }
-# SCORES:  [81884676878.09312, 81884676878.09312]
-#
-#SCORES:  [76613073663.50632, 76613073663.50632]
+
+
 if __name__ == "__main__":
     env = EnergyPlusEnv(default_args)
     print('action_space:', end='')
@@ -1066,8 +1086,14 @@ if __name__ == "__main__":
         while not done:
             # temp = env.masking_valid_actions()
             # print(temp)
-            action = env.action_space.sample()
+            action = [random.uniform(-1, 1)]
             ret = n_state, reward, done, truncated, info = env.step(action)
+            print('======')
+            print('state', n_state)
+            # print('action', action)
+            # print('reward', reward, 're', info['energy_reward'])
+            # print('act', info['actuators'])
+            print('======')
             # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             score+=info['energy_reward']
 
