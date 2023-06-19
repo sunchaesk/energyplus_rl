@@ -511,7 +511,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 2500
+    FIXED_ALPHA = 1000
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')

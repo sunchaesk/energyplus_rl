@@ -365,13 +365,33 @@ class EnergyPlusRunner:
                 for key, handle
                 in self.var_handles.items()
             },
-            # **{
-            #     key: self.x.get_meter_value(state_argument, handle)
-            #     for key, handle
-            #     in self.meter_handles.items()
-            # }
         }
+
+        # post process obs state
+        self._process_obs(state_argument)
+
         self.obs_queue.put(self.next_obs)
+
+    def _process_obs(self, state_argument) -> None:
+        '''
+        Called after _collect_obs, and get_variable_value at state
+        use this function to add post-processing to the obs:
+        --- such as adding more states, etc
+
+        eg:
+        self.next_obs  = {
+        'outdoor_temp': 16.95,
+        'indoor_temp_living': 28.936114602861167,
+        'mean_radiant_temperature_living': 30.106807344102126,
+        'relative_humidity_living': 37.53592428294955,
+        'sky_diffuse_solar_ldf': 0.0,
+        'sky_diffuse_solar_sdr': 0.0,
+        'site_direct_solar': 0.0,
+        'site_horizontal_infrared': 328.0
+        }
+        '''
+        #print(self.next_obs)
+        return
 
     def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
         '''
@@ -393,18 +413,10 @@ class EnergyPlusRunner:
             return
         next_action = self.act_queue.get()[0]
         next_action = self._rescale(next_action, -1, 1, 15, 30)
-        # print('######')
-        # print('next:', next_action)
-        # print('######')
+
         assert isinstance(next_action, float) or isinstance(next_action, np.float32) # for Box action space, next_action dtype will be float32
         assert next_action >= 15
 
-        #print(next_action)
-        # self.x.set_actuator_value(
-        #     state=state_argument,
-        #     actuator_handle=self.actuator_handles["sat_spt"],
-        #     actuator_value=next_action
-        # )
         self.x.set_actuator_value(
             state=state_argument,
             actuator_handle=self.actuator_handles['cooling_actuator_living'],
@@ -417,13 +429,9 @@ class EnergyPlusRunner:
             actuator_value=0 # NOTE: set it to a extreme low temp so it's never triggered
             # actuator_value=15.0
         )
-        #SCORES:  [20538820133.84012, 20538820133.84012]
         temp1 = self.x.get_actuator_value(state_argument,self.actuator_handles['cooling_actuator_living'])
         temp2 = self.x.get_actuator_value(state_argument, self.actuator_handles['heating_actuator_living'])
         indoor = self.x.get_variable_value(state_argument, self.var_handles['indoor_temp_living'])
-        # print('##', temp1, temp2)
-        # print('#####', indoor)
-        #print('## ACTUATOR VAL:', temp)
 
     def _init_callback(self, state_argument) -> bool:
         """initialize EnergyPlus handles and checks if simulation runtime is ready"""
@@ -980,17 +988,7 @@ class EnergyPlusEnv(gym.Env):
     @staticmethod
     def _compute_reward_energy(meter: Dict[str, float]) -> float:
         """compute reward scalar"""
-        #print('Heating', obs['heating_elec'], 'Cooling', obs['cooling_elec'])
-        #reward = -1 * meter['elec_hvac']
-        # reward = obs['elec_heating'] + obs['elec_cooling']
-        # print('REWARD:', reward)
-        # below is reward testing
-        # reward = 10
-        # print("#########################")
-        # print(reward)
-        # print("#########################")
         reward = -1 * meter['elec_cooling']
-        # reward = meter['elec_cooling']
         return reward
 
     @staticmethod
@@ -1066,12 +1064,12 @@ if __name__ == "__main__":
         score = 0
 
         while not done:
-            temp = env.masking_valid_actions()
-            print(temp)
-            # action = env.action_space.sample()
-            # ret = n_state, reward, done, truncated, info = env.step(action)
+            # temp = env.masking_valid_actions()
+            # print(temp)
+            action = env.action_space.sample()
+            ret = n_state, reward, done, truncated, info = env.step(action)
             # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
-            # score+=info['energy_reward']
+            score+=info['energy_reward']
 
         env.pickle_save_pmv_cache()
         scores.append(score)
