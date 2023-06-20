@@ -795,6 +795,8 @@ class EnergyPlusEnv(gym.Env):
 
         reward = reward_energy
 
+        reward = np.interp(reward, [-900000, 0], [-1, 1])
+
         # NOTE: HARD-spiking penalty
         # PENALTY = None
         # if abs(reward_thermal_comfort) > self.acceptable_pmv:
@@ -1134,6 +1136,7 @@ if __name__ == "__main__":
     print(env.action_space)
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
+    energy = []
 
     for episode in range(1):
         state = env.reset()
@@ -1144,9 +1147,12 @@ if __name__ == "__main__":
             # temp = env.masking_valid_actions()
             # print(temp)
             action = env.action_space.sample()
+            #print(action)
+            action = [-1]
             ret = n_state, reward, done, truncated, info = env.step(action)
 
-            print('n_state', n_state)
+            energy.append(reward)
+            print('n_state', reward)
             # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             score+=info['energy_reward']
 
@@ -1154,4 +1160,6 @@ if __name__ == "__main__":
         env.pickle_save_pmv_cache()
         scores.append(score)
         print("SCORES: ", scores)
+        print(energy)
+        print('MAX ENERGY', min(energy))
     print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?
