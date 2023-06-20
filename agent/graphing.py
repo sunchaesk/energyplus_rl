@@ -197,7 +197,7 @@ def plot_list(d_list, style='fit'):
                 plt.plot(x_vals, data_list[i], label=d_list[i][1])
 
 
-        plt.axhline(146025024.35006934, color='red', linestyle='dashdot', linewidth=5)
+        #plt.axhline(146025024.35006934, color='red', linestyle='dashdot', linewidth=5)
         plt.legend()
         plt.show()
     finally:
@@ -207,13 +207,13 @@ def plot_list(d_list, style='fit'):
 
 if __name__ == "__main__":
     l = [
-        ('./logs/sac-linear7000.txt', 'linear 7000'),
-        ('./logs/sac-linear8000.txt', 'linear 8000'),
-        ('./logs/sac-linear9000.txt', 'linear 9000'),
-        ('./logs/sac-linear15000.txt', 'linear 15000'),
-        ('./logs/sac-linear22000.txt', 'linear 22000')
+        ('./logs/sac-energy.txt', 'unnormalized observation space'),
+        # ('./logs/sac-linear8000.txt', 'linear 8000'),
+        # ('./logs/sac-linear9000.txt', 'linear 9000'),
+        # ('./logs/sac-linear15000.txt', 'linear 15000'),
+        ('./logs/sac-scores.txt', 'normalized observation space')
     ]
-    plot_list(l, style='fit')
+    plot_list(l, style='all')
     # plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
     #plot_penalty()
     #plot_horizon()

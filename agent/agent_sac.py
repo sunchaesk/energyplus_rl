@@ -389,6 +389,7 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             #print(action_v)
             next_state, reward, done, truncated, info = env.step(action_v)
             next_state = next_state.reshape((1,state_size))
+            #print('REWARD', reward)
 
 
             agent.step(state, action, reward, next_state, done, t)
@@ -420,8 +421,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         end = 300
         x = list(range(end - start))
 
-        print(rewards)
-        print('mean', np.mean(rewards))
+        #print(rewards)
+        #print('mean', np.mean(rewards))
         # print(x)
         # print(act)
 
@@ -474,7 +475,7 @@ parser.add_argument("-env", type=str,default="Pendulum-v1", help="Environment na
 parser.add_argument("-info", type=str, help="Information or name of the run")
 parser.add_argument("-ep", type=int, default=100, help="The amount of training episodes, default is 100")
 parser.add_argument("-seed", type=int, default=0, help="Seed for the env and torch network weights, default is 0")
-parser.add_argument("-lr", type=float, default=5e-5, help="Learning rate of adapting the network weights, default is 5e-4")
+parser.add_argument("-lr", type=float, default=3e-4, help="Learning rate of adapting the network weights, default is 5e-4")
 parser.add_argument("-a", "--alpha", type=float,default=0.1, help="entropy alpha value, if not choosen the value is leaned by the agent")
 parser.add_argument("-layer_size", type=int, default=256, help="Number of nodes per neural network layer, default is 256")
 parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e6), help="Size of the Replay memory, default is 1e6")
@@ -511,7 +512,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 1000
+    FIXED_ALPHA = 2500
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')
