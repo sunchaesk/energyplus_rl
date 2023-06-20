@@ -363,6 +363,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
     for i_episode in range(start_episode + 1, n_episodes+1):
     # for i_episode in range(1):
 
+
+
         state = env.reset()
         state = state.reshape((1,state_size))
         score = 0
@@ -372,7 +374,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         t = 0
 
         # DEBUG
-        rewards = []
+        energy_rewards = []
+        cost_rewards = []
         comfort = []
         act = []
         comfort_bound_high = []
@@ -382,11 +385,21 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
 
         while not done:
             mask = env.masking_valid_actions(scale=(-1, 1))
-
+            #mask = (-1, 1)
             action = agent.act(state, mask)
             action_pre_clip = action.numpy()
             action_v = np.clip(action_pre_clip*action_high, action_low, action_high)
-            #print(action_v)
+
+            # if i_episode < 7:
+            #     action = torch.tensor([mask[1]])
+            #     action_v = action.numpy()
+            #     action_v = np.clip(action_v*action_high, action_low, action_high)
+            # else:
+            #     action = agent.act(state, mask)
+            #     action_pre_clip = action.numpy()
+            #     action_v = np.clip(action_pre_clip*action_high, action_low, action_high)
+
+
             next_state, reward, done, truncated, info = env.step(action_v)
             next_state = next_state.reshape((1,state_size))
 
@@ -395,9 +408,10 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             t += 1
 
             # DEBUG
-            action_before_clip.append(action_pre_clip[0])
-            rewards.append(reward)
-            comfort.append(info['comfort_reward'])
+            energy_rewards.append(info['energy_reward'] / 200)
+            cost_rewards.append(reward)
+            # rewards.append(reward)
+            # comfort.append(info['comfort_reward'])
                 # temp = env.masking_valid_actions()
                 # comfort_bound_high.append(temp[1])
                 # comfort_bound_low.append(temp[0])
@@ -407,7 +421,6 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
             #DEBUG
             score += info['cost_reward']
             act.append(action_v[0])
-            rewards.append(reward)
             comfort.append(info['comfort_reward'])
 
 
@@ -420,19 +433,23 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         end = 300
         x = list(range(end - start))
 
-        print(rewards)
-        print('mean', np.mean(rewards))
         # print(x)
         # print(act)
 
         fig, ax1 = plt.subplots()
         ax1.set_title('First 300 steps of training episode {}'.format(i_episode))
-        ax1.scatter(x[start:end], act[start:end], color='red')
+        ax1.plot(x[start:end], energy_rewards[start:end], color='blue', linestyle='-')
+        ax1.plot(x[start:end], cost_rewards[start:end], color='green', linestyle='-')
+        # ax1.scatter(x[start:end], act[start:end], color='red')
+
+        print(energy_rewards)
 
         ax2 = ax1.twinx()
-        ax2.plot(x[start:end], comfort[start:end], color='blue', linestyle='-')
-        ax2.axhline(0.7, color='black', linestyle='--')
-        ax2.axhline(-0.7, color='black', linestyle='--')
+        ax2.scatter(x[start:end], act[start:end], color='red')
+        # ax2.plot(x[start:end], comfort[start:end], color='blue', linestyle='-')
+        # ax2.axhline(0.7, color='black', linestyle='--')
+        # ax2.axhline(-0.7, color='black', linestyle='--')
+
         fig.tight_layout()
         plt.show()
         # time.sleep(1)
@@ -511,7 +528,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 3000
+    FIXED_ALPHA = None
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')
@@ -542,7 +559,7 @@ if __name__ == "__main__":
         agent.actor_local.load_state_dict(torch.load(saved_model))
         play()
     else:
-        SAC(n_episodes=110, max_t=100000, print_every=args.print_every,load=True)
+        SAC(n_episodes=20000, max_t=100000, print_every=args.print_every,load=True)
     t1 = time.time()
     env.close()
     print("training took {} min!".format((t1-t0)/60))
