@@ -90,13 +90,24 @@ def parse_args() -> argparse.Namespace:
 # radiant
 # diffuse
 
+
+# outdoor 32.2 8.9
+# indoor 41.223511372068636 21.618788496151314
+# mean_radiant_temp 42.37128185378897 22.155167975081476
+# relative_humidity 59.65230658819031 24.260989719707105
+# sky_diff_ldf 210.82257131667535 0.0
+# sky_diff_sdr 230.72313848472825 0.0
+# site_direct_solar 854.0 0.0
+# site_horz 435.0 290.0
+
 class EnergyPlusRunner:
 
-    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue, meter_queue: Queue) -> None:
+    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue, meter_queue: Queue, normalized_obs_queue: Queue) -> None:
         self.episode = episode
         self.env_config = env_config
         self.meter_queue = meter_queue
         self.obs_queue = obs_queue
+        self.normalized_obs_queue = normalized_obs_queue
         self.act_queue = act_queue
         self.curr = None # current time of the simulation run for output directory naming
 
@@ -118,22 +129,23 @@ class EnergyPlusRunner:
 
         # below is declaration of variables, meters and actuators
         # this simulation will interact with
+        # handle_name : var_name, var_env, norm_method, OPTIONAL: bound
         self.variables = {
             # °C
-            "outdoor_temp" : ("Site Outdoor Air Drybulb Temperature", "Environment"),
+            "outdoor_temp" : ("Site Outdoor Air Drybulb Temperature", "Environment", (8.9, 32.2)),
             # solar radiation
             # beam radiant
             # diffused radiant
             # °C
-            "indoor_temp_living" : ("Zone Air Temperature", 'living_unit1'),
+            "indoor_temp_living" : ("Zone Air Temperature", 'living_unit1', (15, 42)),
             # °C
             # "indoor_temp_attic": ("Zone Air Temperature", 'attic_unit1'), # NOTE: air temperature already have? NOTE: attic temp not needed?
 
             # °C, surface area times emissivity
-            "mean_radiant_temperature_living": ("Zone Mean Radiant Temperature", "living_unit1"),
+            "mean_radiant_temperature_living": ("Zone Mean Radiant Temperature", "living_unit1", (22.155, 42.371)),
 
             # %, air relative humidity after the correct step for each zone
-            "relative_humidity_living": ("Zone Air Relative Humidity", "living_unit1"),
+            "relative_humidity_living": ("Zone Air Relative Humidity", "living_unit1", (24.26, 59.652)),
 
             # m/s air velocity
             # "air_velocity_living": ("", ""),
@@ -179,10 +191,10 @@ class EnergyPlusRunner:
             # 'sky_diffuse_solar_ldb1': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_1.unit1"),
             # 'sky_diffuse_solar_ldb2': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", "Window_ldb_2.unit1"),
             # DONE: since they are same reduce the # of varialbes to:
-            'sky_diffuse_solar_ldf': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1'),
+            'sky_diffuse_solar_ldf': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldf_1.unit1', (0, 210.822)),
             #'sky_diffuse_solar_ldb': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldb_1.unit1'),
             # DONE
-            'sky_diffuse_solar_sdr': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
+            'sky_diffuse_solar_sdr': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1', (0, 230.723)),
             #'sky_diffuse_solar_sdl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
 
             # Ground Diffuse Solar Radiation [W/m^2]
@@ -197,8 +209,8 @@ class EnergyPlusRunner:
             # 'ground_diffuse_solar_3': ("Surface Outside Face Incident Ground Diffuse Solar Radiation Rate per Area", 'Window_sdl_1.unit1'),
 
             # DONE DONE
-            'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment"),
-            'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment"),
+            'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment", (0, 854)),
+            'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment", (290, 435)),
 
             #'test_ldl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldl_1.unit1'),
             # 'diffuse_solar_ldf2': ("", ""),
@@ -370,6 +382,15 @@ class EnergyPlusRunner:
         # post process obs state
         self._process_obs(state_argument)
 
+
+        # normalize each of the observations to range of [-1, 1] using linear interpolation
+        temp = dict()
+        for key, item in self.var_handles.items():
+            #print('key', key, 'item', item)
+            temp[key] = np.interp(self.next_obs[key], [self.variables[key][2][0], self.variables[key][2][1]], [-1, 1])
+        self.normalized_next_obs = temp
+
+        self.normalized_obs_queue.put(self.normalized_next_obs)
         self.obs_queue.put(self.next_obs)
 
     def _process_obs(self, state_argument) -> None:
@@ -461,7 +482,7 @@ class EnergyPlusRunner:
             # print("HIIIIITTTT")
 
             self.var_handles = {
-                key: self.x.get_variable_handle(state_argument, *var)
+                key: self.x.get_variable_handle(state_argument, var[0], var[1])
                 for key, var in self.variables.items()
             }
 
@@ -538,25 +559,32 @@ class EnergyPlusEnv(gym.Env):
         # low_obs = np.array(
         #     [-100.0, -100.0, -100.0, 0, 0]
         # )
-        # hig_obs = np.array(
+        # high_obs = np.array(
         #     [100.0, 100.0, 100.0, 100.0, 100000000.0]
         # )
+        # low_obs = np.array(
+        #     [-100.0, -100.0, -100.0, 0, 0, 0, 0, 0]
+        # )
+        # high_obs = np.array(
+        #     [100.0, 100.0, 100.0, 100.0, 100000000.0, 100000000.0, 100000000.0, 100000000.0]
+        # )
+
         low_obs = np.array(
-            [-100.0, -100.0, -100.0, 0, 0, 0, 0, 0]
+            [-1, -1, -1, -1, -1, -1, -1, -1]
         )
-        hig_obs = np.array(
-            [100.0, 100.0, 100.0, 100.0, 100000000.0, 100000000.0, 100000000.0, 100000000.0]
+        high_obs = np.array(
+            [1, 1, 1, 1, 1, 1, 1, 1]
         )
         self.observation_space = gym.spaces.Box(
-            low=low_obs, high=hig_obs, dtype=np.float64
+            low=low_obs, high=high_obs, dtype=np.float64
             # dtype was originally set to float32
         )
         self.last_obs = {}
+        self.normalized_last_obs = {}
 
         # last obs saves it in dictionary format, but last_next_state saves the numpy vec
         self.last_next_state = None
-
-        self.prev_obs = None
+        self.normalized_last_next_state = None
 
         # action space: np.linspace(15,30,0.1)
         self.action_space: Box = Box(np.array([15]), np.array([30]), dtype=np.float32)
@@ -565,6 +593,7 @@ class EnergyPlusEnv(gym.Env):
         self.meter_queue: Optional[Queue] = None
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
+        self.normalized_obs_queue: Optional[Queue] = None
 
     def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
         '''
@@ -661,13 +690,15 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue = Queue(maxsize=1)
         self.act_queue = Queue(maxsize=1)
         self.meter_queue = Queue(maxsize=1)
+        self.normalized_obs_queue = Queue(maxsize=1)
 
         self.energyplus_runner = EnergyPlusRunner(
             episode=self.episode,
             env_config=self.env_config,
             obs_queue=self.obs_queue,
             act_queue=self.act_queue,
-            meter_queue=self.meter_queue
+            meter_queue=self.meter_queue,
+            normalized_obs_queue = self.normalized_obs_queue
         )
         self.energyplus_runner.start()
 
@@ -678,16 +709,22 @@ class EnergyPlusEnv(gym.Env):
         try:
             obs = self.obs_queue.get()
             meter = self.meter_queue.get()
+            normalized_obs = self.normalized_obs_queue.get()
         except Empty:
             meter = self.last_meter
             obs = self.last_obs
+            normalized_obs = self.normalized_last_obs
 
         obs_vec = np.array(list(obs.values()))
+        normalized_obs_vec = np.array(list(normalized_obs.values()))
 
         # update the self.last_next_state
         self.last_next_state = obs_vec
+        self.normalized_last_next_state = normalized_obs_vec
 
-        return obs_vec
+        return_vec = obs_vec
+
+        return return_vec
     #return np.array(list(obs.values())), np.array(list(meter.values())) #
 
     def step(self, action):
@@ -727,23 +764,22 @@ class EnergyPlusEnv(gym.Env):
             self.act_queue.put(sat_spt_value, timeout=timeout)
             self.last_obs = obs = self.obs_queue.get(timeout=timeout)
             self.last_meter = meter = self.meter_queue.get(timeout=timeout)
+            self.normalized_last_obs = normalized_obs = self.normalized_obs_queue.get(timeout=timeout)
         except (Full, Empty):
             done = True
             obs = self.last_obs
             meter = self.last_meter
+            normalized_obs = self.normalized_last_obs
             # NOTE: from this point below, obs is updated
             # noticed cases where obs are same as prev (some bottleneck with simulation)
         obs_vec = np.array(list(obs.values()))
-        # if obs_vec == self.prev_obs:
-        if  (obs_vec == self.prev_obs).all():
-            print('########')
-            print("SAME OBS!")
-            print('########')
-            return None, 0, None, None, None
+        normalized_obs_vec = np.array(list(normalized_obs.values()))
 
+        ret_obs_vec = normalized_obs_vec
 
         # update the self.last_next_state
         self.last_next_state = obs_vec
+        self.normalized_last_next_state = normalized_obs_vec
 
         # compute energy reward
         reward_energy = self._compute_reward_energy(meter)
@@ -754,6 +790,10 @@ class EnergyPlusEnv(gym.Env):
             0.1, #NOTE: for now set as 0.1, but find if E+ can generate specific values
             obs_vec[3]
         )
+        # compute reward cost
+        reward_cost = self._compute_reward_cost(meter)
+
+        reward = reward_energy
 
         # NOTE: HARD-spiking penalty
         # PENALTY = None
@@ -821,10 +861,12 @@ class EnergyPlusEnv(gym.Env):
         # print('THERMAL COMFORT:', thermal_comfort)
 
         #print('ACTION VAL:',action, sat_spt_value, "OBS: ", obs_vec[:])
-        return obs_vec, (reward_energy + PENALTY), done, False, {'date': (month, day),
+        return ret_obs_vec, (reward + PENALTY), done, False, {'date': (month, day),
                                                                  'actuators' : self.retrieve_actuators(),
                                                                  'energy_reward': reward_energy,
-                                                                 'comfort_reward': reward_thermal_comfort}
+                                                                 'comfort_reward': reward_thermal_comfort,
+                                                                 'cost_reward': reward_cost
+                                                          }
 
     def b_during_sim(self):
         '''
@@ -992,7 +1034,41 @@ class EnergyPlusEnv(gym.Env):
         return reward
 
     @staticmethod
-    def _compute_reward_cost(meter: Dict[str, float]) -> float:
+    def _compute_reward_energy_kilowatts(meter: Dict[str, float]) -> float:
+        reward = -1 * meter['elec_cooling']
+        reward_watt = reward / (10 * 60)
+        reward_kilowatt = reward_watt / 1000
+        return reward_kilowatt
+
+    def _compute_cost_rate(self, meter: Dict[str, float]) -> float:
+        '''returns the cost rate at current timestep.
+        NOTE?: Use demand signal (eg. 1, 2, 3, 4)
+        '''
+        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
+        minute = self.energyplus_runner.x.minutes(self.energyplus_runner.energyplus_state)
+        day_of_week = self.energyplus_runner.x.day_of_week(self.energyplus_runner.energyplus_state)
+        if day_of_week in [1, 7]:
+            # weekend pricing
+            if hour in range(0, 7) or hour in range(23, 24 + 1): # plus one is to include 7
+                #cost_rate = 2.4
+                return 1
+            elif hour in range(7, 23):
+                #cost_rate = 7.4
+                return 2
+        else:
+            if hour in range(0, 7) or hour in range(23, 24 + 1):
+                #cost_rate = 2.4
+                return 1
+            elif hour in range(7, 16) or hour in range(21, 23):
+                #cost_rate = 10.2
+                return 3
+            elif hour in range(16, 21):
+                #cost_rate = 24.0
+                return 4
+
+
+    #@staticmethod
+    def _compute_reward_cost(self, meter: Dict[str, float]) -> float:
         '''
         NOTE: peak hours and corresponding cost
         ultra-low overnight: Everyday from 11pm to 7am :2.4 C
@@ -1058,6 +1134,7 @@ if __name__ == "__main__":
     print(env.action_space)
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
+
     for episode in range(1):
         state = env.reset()
         done = False
@@ -1068,8 +1145,11 @@ if __name__ == "__main__":
             # print(temp)
             action = env.action_space.sample()
             ret = n_state, reward, done, truncated, info = env.step(action)
+
+            print('n_state', n_state)
             # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             score+=info['energy_reward']
+
 
         env.pickle_save_pmv_cache()
         scores.append(score)
