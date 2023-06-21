@@ -211,7 +211,7 @@ if __name__ == "__main__":
         # ('./logs/sac-linear8000.txt', 'linear 8000'),
         # ('./logs/sac-linear9000.txt', 'linear 9000'),
         # ('./logs/sac-linear15000.txt', 'linear 15000'),
-        ('./logs/sac-scores.txt', 'normalized observation space')
+        ('./logs/sac-scores.txt', 'w/ Hour of Week & Cost Rate Signal')
     ]
     plot_list(l, style='all')
     # plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')

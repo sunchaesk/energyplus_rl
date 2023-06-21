@@ -341,7 +341,7 @@ def save_reward(score:float) -> None:
     with open(f_name, 'a') as scores_f:
         scores_f.write(str(score) + '\n')
 
-def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
+def SAC(n_episodes=200000, max_t=500, print_every=2, load=True, graph=False):
 
     scores_deque = deque(maxlen=100)
     average_100_scores = []
@@ -435,7 +435,8 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True):
         ax2.axhline(0.7, color='black', linestyle='--')
         ax2.axhline(-0.7, color='black', linestyle='--')
         fig.tight_layout()
-        plt.show()
+        if graph:
+            plt.show()
         # time.sleep(1)
         #plt.close('all')
 
@@ -475,10 +476,10 @@ parser.add_argument("-env", type=str,default="Pendulum-v1", help="Environment na
 parser.add_argument("-info", type=str, help="Information or name of the run")
 parser.add_argument("-ep", type=int, default=100, help="The amount of training episodes, default is 100")
 parser.add_argument("-seed", type=int, default=0, help="Seed for the env and torch network weights, default is 0")
-parser.add_argument("-lr", type=float, default=3e-4, help="Learning rate of adapting the network weights, default is 5e-4")
+parser.add_argument("-lr", type=float, default=5e-4, help="Learning rate of adapting the network weights, default is 5e-4")
 parser.add_argument("-a", "--alpha", type=float,default=0.1, help="entropy alpha value, if not choosen the value is leaned by the agent")
 parser.add_argument("-layer_size", type=int, default=256, help="Number of nodes per neural network layer, default is 256")
-parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e6), help="Size of the Replay memory, default is 1e6")
+parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e7), help="Size of the Replay memory, default is 1e6")
 parser.add_argument("--print_every", type=int, default=2, help="Prints every x episodes the average reward over x episodes")
 parser.add_argument("-bs", "--batch_size", type=int, default=256, help="Batch size, default is 256")
 parser.add_argument("-t", "--tau", type=float, default=1e-2, help="Softupdate factor tau, default is 1e-2")
@@ -512,7 +513,7 @@ if __name__ == "__main__":
     LR_ACTOR = args.lr         # learning rate of the actor
     LR_CRITIC = args.lr        # learning rate of the critic
     FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 2500
+    FIXED_ALPHA = 1000
     print('################3')
     print("ALPHA", FIXED_ALPHA)
     print('################3')
@@ -543,7 +544,7 @@ if __name__ == "__main__":
         agent.actor_local.load_state_dict(torch.load(saved_model))
         play()
     else:
-        SAC(n_episodes=110, max_t=100000, print_every=args.print_every,load=True)
+        SAC(n_episodes=110, max_t=100000, print_every=args.print_every,load=True, graph=True)
     t1 = time.time()
     env.close()
     print("training took {} min!".format((t1-t0)/60))

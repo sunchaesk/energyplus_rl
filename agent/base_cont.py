@@ -379,16 +379,15 @@ class EnergyPlusRunner:
             },
         }
 
-        # post process obs state
-        self._process_obs(state_argument)
-
-
         # normalize each of the observations to range of [-1, 1] using linear interpolation
         temp = dict()
         for key, item in self.var_handles.items():
             #print('key', key, 'item', item)
             temp[key] = np.interp(self.next_obs[key], [self.variables[key][2][0], self.variables[key][2][1]], [-1, 1])
         self.normalized_next_obs = temp
+
+        # post process obs state
+        self._process_obs(state_argument)
 
         self.normalized_obs_queue.put(self.normalized_next_obs)
         self.obs_queue.put(self.next_obs)
@@ -398,6 +397,9 @@ class EnergyPlusRunner:
         Called after _collect_obs, and get_variable_value at state
         use this function to add post-processing to the obs:
         --- such as adding more states, etc
+
+        NOTE: process_obs is called after the inputs have been normalized
+        in place manipulation
 
         eg:
         self.next_obs  = {
@@ -411,8 +413,49 @@ class EnergyPlusRunner:
         'site_horizontal_infrared': 328.0
         }
         '''
-        #print(self.next_obs)
-        return
+
+        # Day Of Week / Hour for Demand Response
+        day_of_week = self.x.day_of_week(self.energyplus_state) # in the range (1-7 where 1: sunday)
+        hour = self.x.hour(self.energyplus_state) # in the range (0-24)
+        #print('day_of_week', day_of_week, 'hour', hour)
+        hour_of_week = (24 * (day_of_week - 1)) + hour
+        normalized_hour_of_week = np.interp(hour_of_week, [0, 167], [-1, 1])
+        self.normalized_next_obs['hour_of_week'] = normalized_hour_of_week
+        self.next_obs['hour_of_week'] = hour_of_week
+
+        # Cost Rate Signal (not price and only signal)
+        cost_rate_signal = self._compute_cost_rate_signal()
+        normalized_cost_rate_signal = np.interp(cost_rate_signal, [1, 4], [-1, 1])
+        self.normalized_next_obs['cost_rate_signal'] = normalized_cost_rate_signal
+        self.next_obs['cost_rate_signal'] = cost_rate_signal
+        return None
+
+
+    def _compute_cost_rate_signal(self) -> float:
+        '''returns the cost rate at current timestep.
+        NOTE?: Use demand signal (eg. 1, 2, 3, 4)
+        '''
+        hour = self.x.hour(self.energyplus_state)
+        minute = self.x.minutes(self.energyplus_state)
+        day_of_week = self.x.day_of_week(self.energyplus_state)
+        if day_of_week in [1, 7]:
+            # weekend pricing
+            if hour in range(0, 7) or hour in range(23, 24 + 1): # plus one is to include 7
+                #cost_rate = 2.4
+                return 1
+            elif hour in range(7, 23):
+                #cost_rate = 7.4
+                return 2
+        else:
+            if hour in range(0, 7) or hour in range(23, 24 + 1):
+                #cost_rate = 2.4
+                return 1
+            elif hour in range(7, 16) or hour in range(21, 23):
+                #cost_rate = 10.2
+                return 3
+            elif hour in range(16, 21):
+                #cost_rate = 24.0
+                return 4
 
     def _rescale(self, action, old_range_min, old_range_max, new_range_min, new_range_max):
         '''
@@ -570,10 +613,10 @@ class EnergyPlusEnv(gym.Env):
         # )
 
         low_obs = np.array(
-            [-1, -1, -1, -1, -1, -1, -1, -1]
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1] #10
         )
         high_obs = np.array(
-            [1, 1, 1, 1, 1, 1, 1, 1]
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         )
         self.observation_space = gym.spaces.Box(
             low=low_obs, high=high_obs, dtype=np.float64
@@ -775,6 +818,7 @@ class EnergyPlusEnv(gym.Env):
         obs_vec = np.array(list(obs.values()))
         normalized_obs_vec = np.array(list(normalized_obs.values()))
 
+        # NOTE: set observation type
         ret_obs_vec = normalized_obs_vec
 
         # update the self.last_next_state
@@ -791,9 +835,16 @@ class EnergyPlusEnv(gym.Env):
             obs_vec[3]
         )
         # compute reward cost
-        reward_cost = self._compute_reward_cost(meter)
+        reward_cost = self._compute_reward_cost(meter) # watts * cost (cents/kWh)
 
-        reward = reward_energy
+        reward_watts = self._compute_reward_energy_watts(meter)
+
+        current_cost_rate = self._compute_cost_rate_signal()
+
+        reward_energy_times_cost_rate = reward_energy * current_cost_rate
+
+        reward = reward_energy_times_cost_rate
+        print('reward', reward)
 
         # NOTE: HARD-spiking penalty
         # PENALTY = None
@@ -1034,13 +1085,19 @@ class EnergyPlusEnv(gym.Env):
         return reward
 
     @staticmethod
-    def _compute_reward_energy_kilowatts(meter: Dict[str, float]) -> float:
+    def _compute_reward_energy_watts(meter: Dict[str, float]) -> float:
+        '''
+        doesn't work with base watts, works if miliwatts (* 1000)
+        '''
         reward = -1 * meter['elec_cooling']
         reward_watt = reward / (10 * 60)
-        reward_kilowatt = reward_watt / 1000
-        return reward_kilowatt
+        #reward_kilowatt = reward_watt / 1000
+        reward_kilowatt = reward_watt
+        return reward_kilowatt # * 1000
 
-    def _compute_cost_rate(self, meter: Dict[str, float]) -> float:
+    # NOTE: moved to EnergyPlusRunner class for _process_obs
+    # NOTE NEW: used for computing the cost rate at timestep t
+    def _compute_cost_rate_signal(self) -> float:
         '''returns the cost rate at current timestep.
         NOTE?: Use demand signal (eg. 1, 2, 3, 4)
         '''
@@ -1050,21 +1107,17 @@ class EnergyPlusEnv(gym.Env):
         if day_of_week in [1, 7]:
             # weekend pricing
             if hour in range(0, 7) or hour in range(23, 24 + 1): # plus one is to include 7
-                #cost_rate = 2.4
-                return 1
+                return 2.4
+                # return 1
             elif hour in range(7, 23):
-                #cost_rate = 7.4
-                return 2
+                return 7.4
         else:
             if hour in range(0, 7) or hour in range(23, 24 + 1):
-                #cost_rate = 2.4
-                return 1
+                return 2.4
             elif hour in range(7, 16) or hour in range(21, 23):
-                #cost_rate = 10.2
-                return 3
+                return 10.2
             elif hour in range(16, 21):
-                #cost_rate = 24.0
-                return 4
+                return 24.0
 
 
     #@staticmethod
@@ -1099,8 +1152,8 @@ class EnergyPlusEnv(gym.Env):
             elif hour in range(16, 21):
                 cost_rate = 24.0
 
-        kilowatt_usage = self._compute_reward_energy_kilowatts(meter)
-        return kilowatt_usage * cost_rate
+        watt_usage = self._compute_reward_energy_watts(meter)
+        return watt_usage * cost_rate
 
 
 
@@ -1146,7 +1199,7 @@ if __name__ == "__main__":
             action = env.action_space.sample()
             ret = n_state, reward, done, truncated, info = env.step(action)
 
-            print('n_state', n_state)
+            print('n_state', n_state, len(n_state))
             # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             score+=info['energy_reward']
 
