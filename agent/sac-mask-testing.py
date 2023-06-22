@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal, MultivariateNormal
+from torch.distributions.uniform import Uniform
 import torch.optim as optim
 import argparse
 
@@ -103,7 +104,7 @@ class Actor(nn.Module):
     def evaluate(self, state, epsilon=1e-6):
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1)
+        dist = Uniform(0, 1 + 1e-9)
         e = dist.sample().to(device)
         action = torch.tanh(mu + e * std)
         log_prob = Normal(mu, std).log_prob(mu + e * std) - torch.log(1 - action.pow(2) + epsilon)
@@ -121,8 +122,7 @@ class Actor(nn.Module):
         #state = torch.FloatTensor(state).to(device) #.unsqzeeze(0)
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1) # loc, scale
-        #print('dist', dist)
+        dist = Uniform(0, 1 + 1e-9)
         e      = dist.sample().to(device)
         action = torch.tanh(mu + e * std).cpu()
         #print(action)
@@ -363,10 +363,8 @@ class ReplayBuffer:
         """Return the current size of internal memory."""
         return len(self.memory)
 
-checkpoint_path = './model/sac-checkpoint.pt'
-# checkpoint_path = './model/test-sac-checkpoint.pt'
 
-def test():
+def test(checkpoint_path, state_size):
     agent = Agent(state_size=state_size, action_size=action_size, random_seed=seed, hidden_size=HIDDEN_SIZE, action_prior='uniform')
     checkpoint = torch.load(checkpoint_path)
     agent.actor_local.load_state_dict(checkpoint['actor_state_dict'])
@@ -383,24 +381,30 @@ def test():
     outdoor_temperature = []
     thermal_comfort = []
 
+    mask_upper_bound = []
+    mask_lower_bound = []
+
+    actor1_setpoint = []
+    actor2_setpoint = []
+
+    cost_reward_sum = 0
+
     for i_episode in range(1):
         state = env.reset()
         print('state', state)
         state = state.reshape((1, state_size))
 
         while True:
-            mask = env.masking_valid_actions()
-            action = agent.act(state, mask)
-
+            temp = env.masking_valid_actions()
+            action = agent.act(state, temp)
             action_v = action[0].numpy()
-            # action_v = (mask[1] + mask[0]) / 2
-
-            print(action_v)
             action_v = np.clip(action_v * action_high, action_low, action_high)
             # next_state, reward, done, truncated, info = env.step([action_v])
             next_state, reward, done, truncated, info = env.step([action_v])
             next_state = next_state.reshape((1, state_size))
             state = next_state
+
+            cost_reward_sum += info['cost_reward']
 
             #print(state[0][0])
             steps += 1
@@ -410,6 +414,8 @@ def test():
             indoor_temperature.append(state[0][1])
             outdoor_temperature.append(state[0][0])
             thermal_comfort.append(info['comfort_reward'])
+            mask_upper_bound.append(np.interp(temp[1], [-1, 1], [15, 30]))
+            mask_lower_bound.append(np.interp(temp[0], [-1, 1], [15, 30]))
             if done:
                 break
 
@@ -425,18 +431,24 @@ def test():
 
     x = list(range(size))
     fig, ax1 = plt.subplots()
+
+    acceptable_pmv = 0.1
+
+    plt.title('acceptable_pmv: {}'.format(acceptable_pmv))
     ax1.set_xlabel('steps')
     ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
     ax1.plot(x, cooling_actuator_value[steps_start:steps], 'b-', label='cooling actuator value')
     ax1.plot(x, heating_actuator_value[steps_start:steps], 'r-', label='heating actuator value')
+    ax1.plot(x, mask_lower_bound[steps_start:steps], 'g--', label='mask lower bound')
+    ax1.plot(x, mask_upper_bound[steps_start:steps], 'g--', label='mask upper bound')
     # ax1.plot(x, indoor_temperature[steps_start:steps], 'g-', label='indoor temperature')
     # ax1.plot(x, outdoor_temperature[steps_start:steps], 'c-', label='outdoor temperature')
     ax1.tick_params(axis='y', labelcolor='tab:blue')
 
     ax2 = ax1.twinx()
     ax2.set_ylabel('PMV [-3, 3] ')
-    ax2.axhline(y=0.7, color='black',linestyle='--')
-    ax2.axhline(y=-0.7, color='black',linestyle='--')
+    ax2.axhline(y=acceptable_pmv, color='black',linestyle='--')
+    ax2.axhline(y=-acceptable_pmv, color='black',linestyle='--')
     ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
     # ax2.tick_params(axis='y', labelcolor='black')
 
@@ -445,8 +457,18 @@ def test():
     fig.tight_layout()
     plt.show()
 
+    return cooling_actuator_value, cost_reward_sum
 
+
+checkpoint_path = './model/sac-dr.pt'
+# checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
-    test()
+    test(checkpoint_path, state_size)
+
+    # ax2 = ax1.twinx()
+    # ax2.set_ylabel('PMV [-3, 3] ')
+    # ax2.axhline(y=0.7, color='black',linestyle='--')
+    # ax2.axhline(y=-0.7, color='black',linestyle='--')
+    # ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
     #test_model()
     #test_penalty()

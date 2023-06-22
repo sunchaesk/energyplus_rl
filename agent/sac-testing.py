@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal, MultivariateNormal
+from torch.distributions.uniform import Uniform
 import torch.optim as optim
 import argparse
 
@@ -103,7 +104,7 @@ class Actor(nn.Module):
     def evaluate(self, state, epsilon=1e-6):
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1)
+        dist = Uniform(0, 1 + 1e-9)
         e = dist.sample().to(device)
         action = torch.tanh(mu + e * std)
         log_prob = Normal(mu, std).log_prob(mu + e * std) - torch.log(1 - action.pow(2) + epsilon)
@@ -111,18 +112,23 @@ class Actor(nn.Module):
         return action, log_prob
 
 
-    def get_action(self, state):
+    def get_action(self, state, mask):
         """
         returns the action based on a squashed gaussian policy. That means the samples are obtained according to:
         a(s,e)= tanh(mu(s)+sigma(s)+e)
+
+        NOTE: for action masking, action range is clamped before sampled from distribution
         """
         #state = torch.FloatTensor(state).to(device) #.unsqzeeze(0)
         mu, log_std = self.forward(state)
         std = log_std.exp()
-        dist = Normal(0, 1)
+        dist = Uniform(0, 1 + 1e-9)
         e      = dist.sample().to(device)
         action = torch.tanh(mu + e * std).cpu()
-        #action = torch.clamp(action*action_high, action_low, action_high)
+        #print(action)
+
+        #NOTE: action masking
+        action = torch.clamp(action, mask[0], mask[1])
         return action[0]
 
 
@@ -214,10 +220,12 @@ class Agent():
             self.learn(step, experiences, GAMMA)
 
 
-    def act(self, state):
-        """Returns actions for given state as per current policy."""
+    def act(self, state, mask):
+        """Returns actions for given state as per current policy.
+        mask: tuple(low_action_bound, high_action_bound)
+        """
         state = torch.from_numpy(state).float().to(device)
-        action = self.actor_local.get_action(state).detach()
+        action = self.actor_local.get_action(state, mask).detach()
         return action
 
     def learn(self, step, experiences, gamma, d=1):
@@ -355,17 +363,16 @@ class ReplayBuffer:
         """Return the current size of internal memory."""
         return len(self.memory)
 
-checkpoint_path = './model/sac-checkpoint.pt'
-# checkpoint_path = './model/test-sac-checkpoint.pt'
 
-def test():
-    agent = Agent(state_size=state_size, action_size=action_size, random_seed=seed, hidden_size=HIDDEN_SIZE, action_prior='uniform')
-    checkpoint = torch.load(checkpoint_path)
-    agent.actor_local.load_state_dict(checkpoint['actor_state_dict'])
-    agent.actor_local.eval()
+def test(checkpoint_path, state_size):
+    if checkpoint_path != "mask":
+        agent = Agent(state_size=state_size, action_size=action_size, random_seed=seed, hidden_size=HIDDEN_SIZE, action_prior='uniform')
+        checkpoint = torch.load(checkpoint_path)
+        agent.actor_local.load_state_dict(checkpoint['actor_state_dict'])
+        agent.actor_local.eval()
 
-    print('EPISODE:', checkpoint['episode'])
-    time.sleep(3)
+        print('EPISODE:', checkpoint['episode'])
+        time.sleep(3)
 
     steps = 0
     episode_reward = 0
@@ -375,20 +382,32 @@ def test():
     outdoor_temperature = []
     thermal_comfort = []
 
+    actor1_setpoint = []
+    actor2_setpoint = []
+
+    cost_reward_sum = 0
+
     for i_episode in range(1):
         state = env.reset()
         print('state', state)
         state = state.reshape((1, state_size))
 
         while True:
-            action = agent.act(state)
-            print('action')
-            action_v = action[0].numpy()
-            action_v = np.clip(action_v * action_high, action_low, action_high)
+            temp = env.masking_valid_actions()
+
+            if checkpoint_path != "mask":
+                action = agent.act(state, temp)
+                print('action')
+                action_v = action[0].numpy()
+                action_v = np.clip(action_v * action_high, action_low, action_high)
+            else:
+                action_v = temp[1]
             # next_state, reward, done, truncated, info = env.step([action_v])
             next_state, reward, done, truncated, info = env.step([action_v])
             next_state = next_state.reshape((1, state_size))
             state = next_state
+
+            cost_reward_sum += info['cost_reward']
 
             #print(state[0][0])
             steps += 1
@@ -433,8 +452,45 @@ def test():
     fig.tight_layout()
     plt.show()
 
+    return cooling_actuator_value, cost_reward_sum, episode_reward
 
+
+checkpoint_path = './model/sac-checkpoint.pt'
+# checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
-    test()
+    demand_response, dr_cost, dr_energy = test('./model/sac-dr.pt', state_size=10)
+    no_demand_response, ndr_cost, ndr_energy = test('mask',state_size=10)
+
+    steps_start = 10
+    steps = 310
+    size = steps - steps_start
+    print('##########################')
+    #print('EP reward:', episode_reward)
+    print('##########################')
+
+    # print(cooling_actuator_value)
+    # print(episode_reward)
+    # print(demand_response)
+    # print(no_demand_response)
+    print('COST REWARD')
+    print('dr', dr_cost, dr_energy)
+    print('ndr', ndr_cost, ndr_energy)
+
+    x = list(range(size))
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel('steps')
+    ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
+    ax1.plot(x, no_demand_response[steps_start:steps], 'b-', label='no demand response')
+    #ax1.plot(x, demand_response[steps_start:steps], 'r-', label='demand response')
+    # ax1.plot(x, indoor_temperature[steps_start:steps], 'g-', label='indoor temperature')
+    # ax1.plot(x, outdoor_temperature[steps_start:steps], 'c-', label='outdoor temperature')
+    ax1.tick_params(axis='y', labelcolor='tab:blue')
+    plt.show()
+
+    # ax2 = ax1.twinx()
+    # ax2.set_ylabel('PMV [-3, 3] ')
+    # ax2.axhline(y=0.7, color='black',linestyle='--')
+    # ax2.axhline(y=-0.7, color='black',linestyle='--')
+    # ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
     #test_model()
     #test_penalty()

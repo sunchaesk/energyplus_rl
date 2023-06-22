@@ -585,7 +585,7 @@ class EnergyPlusEnv(gym.Env):
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
 
-        self.acceptable_pmv = 0.7
+        self.acceptable_pmv = 0.1
 
         # Caching PMV values to accelerate
         # NOTE: key: (tr, rh), val : (low, high)
@@ -695,7 +695,11 @@ class EnergyPlusEnv(gym.Env):
         if pivot == None:
             self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = scale
             #return (15, 30)
-            return scale
+            #return scale
+            # return (-1.0, -0.7333333333333334)
+            ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
+            print(ret - 0.1, ret + 0.1)
+            return (ret - 1e-5, ret + 1e-5)
         else:
             root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
             root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
@@ -844,6 +848,7 @@ class EnergyPlusEnv(gym.Env):
         reward_energy_times_cost_rate = reward_energy * current_cost_rate
 
         reward = reward_energy_times_cost_rate
+        # reward = reward_energy
         print('reward', reward)
 
         # NOTE: HARD-spiking penalty
@@ -1153,7 +1158,7 @@ class EnergyPlusEnv(gym.Env):
                 cost_rate = 24.0
 
         watt_usage = self._compute_reward_energy_watts(meter)
-        return watt_usage * cost_rate
+        return (watt_usage / 1000) * cost_rate
 
 
 
@@ -1178,9 +1183,8 @@ default_args = {'idf': '../in.idf',
                 'pmv_pickle_available': True,
                 'pmv_pickle_path': './pmv_cache.pickle'
                 }
-# SCORES:  [81884676878.09312, 81884676878.09312]
 #
-#SCORES:  [76613073663.50632, 76613073663.50632]
+#SCORES:  [-343068118.4928892, -343058929.74458027, -343034573.5644406, -343063839.9638236, -343081534.0729704, -343076762.9154123, -343055059.71841764, -343033258.9391935, -343036122.53581744, -343047720.2466282]
 if __name__ == "__main__":
     env = EnergyPlusEnv(default_args)
     print('action_space:', end='')
@@ -1188,18 +1192,20 @@ if __name__ == "__main__":
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
 
-    for episode in range(1):
+    for episode in range(10):
         state = env.reset()
         done = False
         score = 0
 
         while not done:
-            # temp = env.masking_valid_actions()
-            # print(temp)
+            temp = env.masking_valid_actions()
+            #print(temp)
             action = env.action_space.sample()
+            #print(action)
+            action = [temp[1]]
             ret = n_state, reward, done, truncated, info = env.step(action)
 
-            print('n_state', n_state, len(n_state))
+            #print('n_state', n_state, len(n_state))
             # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             score+=info['energy_reward']
 

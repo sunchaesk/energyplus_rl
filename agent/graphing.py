@@ -153,11 +153,11 @@ def plot_file(fname,x,y):
         scores_idx = np.array(list(range(len(scores))))
         plt.plot(scores_idx, scores, 'r-')
 
-        moving_avg1 = np.convolve(scores, np.ones(window)/window, mode='valid')
-        plt.plot(range(window - 1,len(scores)), moving_avg1, 'b-')
+        # moving_avg1 = np.convolve(scores, np.ones(window)/window, mode='valid')
+        # plt.plot(range(window - 1,len(scores)), moving_avg1, 'b-')
 
-        moving_avg2 = np.convolve(scores, np.ones(10)/10, mode='valid')
-        plt.plot(range(10 - 1, len(scores)), moving_avg2, 'g-')
+        # moving_avg2 = np.convolve(scores, np.ones(10)/10, mode='valid')
+        # plt.plot(range(10 - 1, len(scores)), moving_avg2, 'g-')
 
         plt.xlabel(x)
         plt.ylabel(y)
@@ -213,8 +213,8 @@ if __name__ == "__main__":
         # ('./logs/sac-linear15000.txt', 'linear 15000'),
         ('./logs/sac-scores.txt', 'w/ Hour of Week & Cost Rate Signal')
     ]
-    plot_list(l, style='all')
-    # plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
+    # plot_list(l, style='all')
+    plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
     #plot_penalty()
     #plot_horizon()
     #plot_hidden()
