@@ -887,6 +887,8 @@ class EnergyPlusEnv(gym.Env):
 
         month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
         day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
+        minute = self.energyplus_runner.x.minutes(self.energyplus_runner.energyplus_state)
 
         # NOTE: -a flag is required therefore, manually alter the runtime
         #print('DATE', month, day)
@@ -921,7 +923,10 @@ class EnergyPlusEnv(gym.Env):
                                                                  'actuators' : self.retrieve_actuators(),
                                                                  'energy_reward': reward_energy,
                                                                  'comfort_reward': reward_thermal_comfort,
-                                                                 'cost_reward': reward_cost
+                                                                 'cost_reward': reward_cost,
+                                                                 'hour': hour,
+                                                                 'minute': minute,
+                                                                 'obs_vec': obs_vec
                                                           }
 
     def b_during_sim(self):
