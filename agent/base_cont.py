@@ -15,6 +15,7 @@ import random
 
 import scipy
 import pickle
+import matplotlib.pyplot as plt
 
 import gymnasium as gym
 import numpy as np
@@ -122,6 +123,7 @@ class EnergyPlusRunner:
         self.simulation_complete = False
         self.request_variable_complete = False
 
+        self.FORECAST_DICT = None
 
         # self.energyplus_api.exchange.request_variable(self.state, "SITE OUTDOOR AIR DRYBULB TEMPERATURE", "ENVIRONMENT")
         # self.energyplus_api.exchange.request_variable(self.energyplus_state, "Surface Outside Face Solar Radiation Heat Gain Rate per Area", "living_unit1")
@@ -413,6 +415,11 @@ class EnergyPlusRunner:
         'site_horizontal_infrared': 328.0
         }
         '''
+        year = self.energyplus_runner.x.year(self.energyplus_runner.energyplus_state)
+        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
+        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
+        minute = self.energyplus_runner.x.minutes(self.energyplus_runner.energyplus_state)
 
         # Day Of Week / Hour for Demand Response
         day_of_week = self.x.day_of_week(self.energyplus_state) # in the range (1-7 where 1: sunday)
@@ -428,8 +435,62 @@ class EnergyPlusRunner:
         normalized_cost_rate_signal = np.interp(cost_rate_signal, [1, 4], [-1, 1])
         self.normalized_next_obs['cost_rate_signal'] = normalized_cost_rate_signal
         self.next_obs['cost_rate_signal'] = cost_rate_signal
+
+        # next time step outdoor, mean radiant, relative humidity
+        with open('./deterministic-forecast.pt', 'rb') as handle:
+            forecast_dict = pickle.load(handle)
+
+        self.FORECAST_DICT = forecast_dict
+        new_time = self._add_10_minutes(year, month, day, hour, minute)
+        curr_values = forecast_dict.get(new_time, False)
+        if not curr_values:
+            closest_key = min((k for k in dictionary.keys() if k > key), default=None)
+            curr_values = forecast_dict[closest_key]
+        self.next_obs['next_outdoor_temp'] = curr_values['']
+        self.next_obs['next_mean_radiant_temperature'] = curr_values['']
+        self.next_obs['next_relative_humidity'] = curr_values['']
+
+
+# def find_closest_key(dictionary, key, default=None):
+
+
         return None
 
+    @staticmethod
+    def _add_10_minutes(year, month, day, hour, minute):
+    # Calculate the total number of minutes
+        total_minutes = (hour * 60) + minute + 10
+
+    # Calculate the new hour and minute values
+        new_hour = total_minutes // 60
+        new_minute = total_minutes % 60
+
+    # Adjust the date if necessary
+        if new_hour >= 24:
+            new_hour %= 24
+            day += 1
+
+        # Handle month overflow
+            if month in [1, 3, 5, 7, 8, 10, 12] and day > 31:
+                day = 1
+                month += 1
+            if month > 12:
+                month = 1
+                year += 1
+            elif month in [4, 6, 9, 11] and day > 30:
+                day = 1
+                month += 1
+            elif month == 2:
+                if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+                    if day > 29:
+                        day = 1
+                        month += 1
+                else:
+                    if day > 28:
+                        day = 1
+                        month += 1
+
+        return year, month, day, new_hour, new_minute
 
     def _compute_cost_rate_signal(self) -> float:
         '''returns the cost rate at current timestep.
@@ -585,7 +646,7 @@ class EnergyPlusEnv(gym.Env):
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
 
-        self.acceptable_pmv = 0.1
+        self.acceptable_pmv = 0.7
 
         # Caching PMV values to accelerate
         # NOTE: key: (tr, rh), val : (low, high)
@@ -661,8 +722,95 @@ class EnergyPlusEnv(gym.Env):
             p = pickle.load(handle)
             self.PMV_CACHE = p
 
-    def masking_valid_actions(self, scale:tuple =(-1, 1)) -> tuple:
+    @staticmethod
+    def _add_10_minutes(year, month, day, hour, minute):
+    # Calculate the total number of minutes
+        total_minutes = (hour * 60) + minute + 10
+
+    # Calculate the new hour and minute values
+        new_hour = total_minutes // 60
+        new_minute = total_minutes % 60
+
+    # Adjust the date if necessary
+        if new_hour >= 24:
+            new_hour %= 24
+            day += 1
+
+        # Handle month overflow
+            if month in [1, 3, 5, 7, 8, 10, 12] and day > 31:
+                day = 1
+                month += 1
+            if month > 12:
+                month = 1
+                year += 1
+            elif month in [4, 6, 9, 11] and day > 30:
+                day = 1
+                month += 1
+            elif month == 2:
+                if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+                    if day > 29:
+                        day = 1
+                        month += 1
+                else:
+                    if day > 28:
+                        day = 1
+                        month += 1
+
+        return year, month, day, new_hour, new_minute
+
+    def masking_valid_actions(self, scale: tuple = (-1, 1)) -> tuple:
         '''
+        calculates the action masking bounds at timestep t + 1
+        '''
+        year = self.energyplus_runner.x.year(self.energyplus_runner.energyplus_state)
+        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
+        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
+        minute = self.energyplus_runner.x.minutes(self.energyplus_runner.energyplus_state)
+        minute = round(minute, -1)
+
+        #load 'deterministic-forecast.pt'
+        with open('./deterministic-forecast.pt', 'rb') as handle:
+            forecast_dict = pickle.load(handle)
+
+        # get timestep next
+
+        self.energyplus_runner.FORECAST_DICT = forecast_dict
+
+        new_time = self._add_10_minutes(year, month, day, hour, minute)
+        curr_values = forecast_dict.get(new_time, False)
+        if not curr_values:
+            return self._masking_valid_actions(scale)
+
+        tr = curr_values['mean_radiant']
+        rh = curr_values['relative_humidity']
+
+        def f(x):
+            tr = curr_values['mean_radiant']
+            rh = curr_values['relative_humidity']
+            return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
+
+        pivot = None
+        xs = (x * 0.5 for x in range(0, 31))
+        for x in xs:
+            if f(x + 15) < 0:
+                pivot = x + 15
+        if pivot == None:
+            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = scale
+            ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
+            return (ret - 0.1, ret + 0.1)
+        else:
+            root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
+            root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
+            root1_scaled = self._rescale(root1, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
+            root2_scaled = self._rescale(root2, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
+            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (root1_scaled, root2_scaled)
+            return (root2_scaled, root1_scaled)
+
+
+    def _masking_valid_actions(self, scale:tuple =(-1, 1)) -> tuple:
+        '''
+        DEPRECATED: calculates the action masking bound using timestep t
         for Policy Gradient methods, find valid action values of the indoor air temperature
         NOTE: valid action value will be
         NOTE: make sure this function is called after the obs_vec has been updated
@@ -699,7 +847,7 @@ class EnergyPlusEnv(gym.Env):
             # return (-1.0, -0.7333333333333334)
             ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
             print(ret - 0.1, ret + 0.1)
-            return (ret - 1e-5, ret + 1e-5)
+            return (ret - 0.01, ret + 0.01)
         else:
             root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
             root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
@@ -778,10 +926,12 @@ class EnergyPlusEnv(gym.Env):
         '''
         @params: action -> numpy.ndarray w/ 1 element
         '''
-        # simulation time values
-        #current_time = self.energyplus_runner.x.current_sim_time(self.energyplus_runner.energyplus_state)
-        # current_date = self.energyplus_runner.x.day_of_month()
-        # current_month = self.energyplus_runner.x.day_of_year()
+        year = self.energyplus_runner.x.year(self.energyplus_runner.energyplus_state)
+        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
+        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
+        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
+        minute = self.energyplus_runner.x.minutes(self.energyplus_runner.energyplus_state)
+
         self.timestep += 1
         done = False
 
@@ -790,14 +940,6 @@ class EnergyPlusEnv(gym.Env):
             print(f"EnergyPlus failed with {self.energyplus_runner.sim_results['exit_code']}")
             sys.exit(1)
 
-        # rescale agent decision to actuator range
-        # sat_spt_value = self._rescale(
-        #     n=int(action),  # noqa
-        #     range1=(0, self.action_space.n),
-        #     range2=(15, 30)
-        # )
-        #sat_spt_value = self._rescale(int(action)) # maybe need int(action)
-        #sat_spt_value = action[0]
         sat_spt_value = np.float32(action)
 
         # enqueue action (received by EnergyPlus through dedicated callback)
@@ -884,11 +1026,6 @@ class EnergyPlusEnv(gym.Env):
 
         PENALTY = 0
 
-        year = self.energyplus_runner.x.year(self.energyplus_runner.energyplus_state)
-        month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
-        day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
-        hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
-        minute = self.energyplus_runner.x.minutes(self.energyplus_runner.energyplus_state)
 
         # NOTE: -a flag is required therefore, manually alter the runtime
         #print('DATE', month, day)
@@ -1200,23 +1337,40 @@ if __name__ == "__main__":
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
 
-    for episode in range(10):
+    temp1_l = []
+    temp2_l = []
+
+    for episode in range(1):
         state = env.reset()
         done = False
         score = 0
 
         while not done:
-            temp = env.masking_valid_actions()
+            temp1 = env.masking_valid_actions()
+            temp2 = env._masking_valid_actions()
+            temp1_l.append(temp1[1])
+            temp2_l.append(temp2[1])
             #print(temp)
-            action = env.action_space.sample()
+            action = [0]
             #print(action)
-            action = [temp[1]]
             ret = n_state, reward, done, truncated, info = env.step(action)
 
             #print('n_state', n_state, len(n_state))
             # print('DATE', info['date'][0], info['date'][1], 'REWARD:', reward, 'ACTION:', action[0])
             score+=info['energy_reward']
 
+        x1 = list(range(len(temp1_l)))
+        x2 = list(range(len(temp2_l)))
+        plt.plot(x1, temp1_l, 'r--')
+        plt.plot(x2, temp2_l, 'b--')
+        plt.show()
+
+        cnt = 0
+        for i in range(1, len(temp2_l)):
+            if temp2_l[i] == temp1_l[i - i]:
+                cnt += 1
+
+        print(cnt)
 
         env.pickle_save_pmv_cache()
         scores.append(score)

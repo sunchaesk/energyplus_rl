@@ -544,7 +544,7 @@ if __name__ == "__main__":
         agent.actor_local.load_state_dict(torch.load(saved_model))
         play()
     else:
-        SAC(n_episodes=5000, max_t=100000, print_every=args.print_every,load=True, graph=False)
+        SAC(n_episodes=5000, max_t=100000, print_every=args.print_every,load=True, graph=True)
     t1 = time.time()
     env.close()
     print("training took {} min!".format((t1-t0)/60))
