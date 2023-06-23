@@ -9,6 +9,7 @@ import numpy as np
 from collections import deque
 import random
 import matplotlib.pyplot as plt
+import pickle
 
 import base_cont as base
 
@@ -79,7 +80,7 @@ def test_model(model, variable_index):
     guess = []
     actual = []
 
-    window_size = 10
+    window_size = 1
     prev = deque(maxlen=10)
 
     while not done:
@@ -89,6 +90,7 @@ def test_model(model, variable_index):
 
             ret = n_state, reward, done, truncated, info = env.step([action])
             prev.append(n_state[variable_index])
+            state = n_state
         else:
 
             input_tensor = torch.tensor([state[variable_index], hour, minute], dtype=torch.float64)
@@ -103,6 +105,8 @@ def test_model(model, variable_index):
             print('OUTPUT VS ACTUAL', output, info['obs_vec'][variable_index])
             guess.append(output.detach().numpy())
             actual.append(np.interp(n_state[0], [-1, 1], [15, 30]))
+
+            state = n_state
     #
     x = list(range(len(guess)))
     plt.plot(x, guess, 'r-')
@@ -131,6 +135,8 @@ def training_data(window_size):
         mean_radiant_data.append(info['obs_vec'][MEAN_RADIANT])
         hour_data.append(info['hour'])
         minute_data.append(info['minute'])
+
+        state = n_state
 
     # return {
     #     'outdoor_temp_data': outdoor_temp_data,
@@ -168,24 +174,17 @@ def training_data(window_size):
         }
     }
 
+def train_run():
 
+    window_size = 1
+    input_size = window_size + 2
+    output_size = 1
 
-# Define input and output
+    hidden_size = 80
 
-window_size = 10
-input_size = window_size + 2
-output_size = 1
+    num_epochs = 10000
+    learning_rate = 0.001
 
-hidden_size = 80
-
-#model = MLP(input_size, hidden_size, output_size)
-
-num_epochs = 10000
-learning_rate = 0.001
-
-#print(training_data(window_size))
-
-if __name__ == "__main__":
     training_data_dict = training_data(window_size)
     print(training_data_dict)
 
@@ -231,3 +230,34 @@ if __name__ == "__main__":
         }, './model/forecast/outdoor-temp.pt')
 
     test_model(mean_radiant_model, MEAN_RADIANT)
+
+def deterministic_forecast():
+    forecast_path = './deterministic-forecast.pt'
+
+    ret_dict = dict()
+
+    env = base.EnergyPlusEnv(default_args)
+    state = env.reset()
+    done = False
+
+    while not done:
+        action = 0
+        ret = n_state, reward, done, truncated, info = env.step([action])
+        current_time = tuple([info['year'], info['month'], info['day'], info['hour'], info['minute']])
+        ret_dict[current_time] = {
+            'outdoor_temp': info['obs_vec'][OUTDOOR_TEMP],
+            'mean_radiant': info['obs_vec'][MEAN_RADIANT],
+            'relative_humidity': info['obs_vec'][RELATIVE_HUMIDITY]
+        }
+        state = n_state
+
+    save = True
+    if save:
+        with open(forecast_path, 'wb') as handle:
+            pickle.dump(ret_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+if __name__ == "__main__":
+    print('RUN')
+    #train_run()
+    deterministic_forecast()

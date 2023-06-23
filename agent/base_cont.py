@@ -884,7 +884,7 @@ class EnergyPlusEnv(gym.Env):
 
         PENALTY = 0
 
-
+        year = self.energyplus_runner.x.year(self.energyplus_runner.energyplus_state)
         month = self.energyplus_runner.x.month(self.energyplus_runner.energyplus_state)
         day = self.energyplus_runner.x.day_of_month(self.energyplus_runner.energyplus_state)
         hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
@@ -924,6 +924,9 @@ class EnergyPlusEnv(gym.Env):
                                                                  'energy_reward': reward_energy,
                                                                  'comfort_reward': reward_thermal_comfort,
                                                                  'cost_reward': reward_cost,
+                                                                 'year': year,
+                                                                 'month': month,
+                                                                 'day': day,
                                                                  'hour': hour,
                                                                  'minute': minute,
                                                                  'obs_vec': obs_vec
