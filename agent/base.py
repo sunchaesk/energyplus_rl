@@ -11,8 +11,8 @@ import time
 
 import random
 
-# import scipy
-# import pickle
+import scipy
+import pickle
 
 import gymnasium as gym
 import numpy as np
@@ -57,6 +57,7 @@ class EnergyPlusRunner:
             'sky_diffuse_solar_sdr': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
             'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment"),
             'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment"),
+            'outdoor_relative_humidity': ("Site Outdoor Air Relative Humidity", "Environment")
         }
         self.var_handles: Dict[str, int] = {}
 

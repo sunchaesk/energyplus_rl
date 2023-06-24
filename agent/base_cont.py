@@ -416,6 +416,13 @@ class EnergyPlusRunner:
         'site_horizontal_infrared': 328.0
         }
         '''
+        # Date Setup
+        year = self.x.year(self.energyplus_state)
+        month = self.x.month(self.energyplus_state)
+        day = self.x.day_of_month(self.energyplus_state)
+        hour = self.x.hour(self.energyplus_state)
+        minute = self.x.minutes(self.energyplus_state)
+
 
         # Day Of Week / Hour for Demand Response
         day_of_week = self.x.day_of_week(self.energyplus_state) # in the range (1-7 where 1: sunday)
@@ -431,8 +438,78 @@ class EnergyPlusRunner:
         normalized_cost_rate_signal = np.interp(cost_rate_signal, [1, 4], [-1, 1])
         self.normalized_next_obs['cost_rate_signal'] = normalized_cost_rate_signal
         self.next_obs['cost_rate_signal'] = cost_rate_signal
+
+        #add forecast to the observation states
+        # with open('./exo-state.pt', 'rb') as handle:
+        #     exo_states_cache = pickle.load(handle)
+        # ## create forecast list (start with 1, to the t + N) e.g: 1, 2, 3, 4, 5 || 1, 3, 5, 7
+        # future_steps = list(range(1, 4))
+        # future_data = []
+        # # round minute
+        # minute = 60 if round(minute, -1) > 60 else round(minute, -1)
+        # print(year, month, day, hour, minute)
+
+        # for n in future_steps:
+        #     n_future_time = tuple([year, month, day, hour, minute])  # this is current time
+        #     for i in range(n):
+        #         n_future_time = self._add_10_minutes(n_future_time)
+        #     future_data.append(exo_states_cache[n_future_time])
+
+        # for i in range(len(future_data)):
+        #     curr_n = future_steps[i]
+        #     for key, val in future_data[i].items():
+        #         self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
+        #         self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
+
+        # print('NEXT_OBS:', self.next_obs )
+        # print('#########\n################\n###################3\n')
+        # print('NORMALIZED_NEXT_OBS', self.normalized_next_obs)
+        # sys.exit(1)
+
         return None
 
+    @staticmethod
+    def _add_10_minutes(inp):
+        year, month, day, hour, minute = inp
+
+        # Calculate the total number of minutes
+        total_minutes = (hour * 60) + minute + 10
+
+        # Calculate the new hour and minute values
+        new_hour = total_minutes // 60
+        new_minute = total_minutes % 60
+
+        # Handle hour and day overflow
+        if new_hour >= 24:
+            new_hour %= 24
+            day += 1
+
+        # Handle month and year overflow
+        if month in [1, 3, 5, 7, 8, 10, 12] and day > 31:
+            day = 1
+            month += 1
+        elif month in [4, 6, 9, 11] and day > 30:
+            day = 1
+            month += 1
+        elif month == 2:
+            if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+                if day > 29:
+                    day = 1
+                    month += 1
+            else:
+                if day > 28:
+                    day = 1
+                    month += 1
+
+        # Handle minute overflow and represent 0 minutes as 60
+        if new_minute == 0:
+            new_minute = 60
+            new_hour -= 1
+
+        if new_hour == -1:
+            new_hour = 23
+
+        return (year, month, day, new_hour, new_minute)
 
     def _compute_cost_rate_signal(self) -> float:
         '''returns the cost rate at current timestep.
