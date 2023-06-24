@@ -212,6 +212,9 @@ class EnergyPlusRunner:
             'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment", (0, 854)),
             'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment", (290, 435)),
 
+            # DONE
+            'outdoor_relative_humidity': ("Site Outdoor Air Relative Humidity", "Environment", (0, 100))
+
             #'test_ldl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldl_1.unit1'),
             # 'diffuse_solar_ldf2': ("", ""),
             # 'diffuse_solar_ldb1': ("", ""),
