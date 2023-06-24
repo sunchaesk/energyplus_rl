@@ -440,30 +440,30 @@ class EnergyPlusRunner:
         self.next_obs['cost_rate_signal'] = cost_rate_signal
 
         #add forecast to the observation states
-        # with open('./exo-state.pt', 'rb') as handle:
-        #     exo_states_cache = pickle.load(handle)
-        # ## create forecast list (start with 1, to the t + N) e.g: 1, 2, 3, 4, 5 || 1, 3, 5, 7
-        # future_steps = list(range(1, 4))
-        # future_data = []
-        # # round minute
-        # minute = 60 if round(minute, -1) > 60 else round(minute, -1)
-        # print(year, month, day, hour, minute)
+        with open('./exo-state.pt', 'rb') as handle:
+            exo_states_cache = pickle.load(handle)
+        ## create forecast list (start with 1, to the t + N) e.g: 1, 2, 3, 4, 5 || 1, 3, 5, 7
+        future_steps = list(range(1, 4))
+        future_data = []
+        # round minute
+        minute = 60 if round(minute, -1) > 60 else round(minute, -1)
+        print(year, month, day, hour, minute)
 
-        # for n in future_steps:
-        #     n_future_time = tuple([year, month, day, hour, minute])  # this is current time
-        #     for i in range(n):
-        #         n_future_time = self._add_10_minutes(n_future_time)
-        #     future_data.append(exo_states_cache[n_future_time])
+        for n in future_steps:
+            n_future_time = tuple([year, month, day, hour, minute])  # this is current time
+            for i in range(n):
+                n_future_time = self._add_10_minutes(n_future_time)
+            future_data.append(exo_states_cache[n_future_time])
 
-        # for i in range(len(future_data)):
-        #     curr_n = future_steps[i]
-        #     for key, val in future_data[i].items():
-        #         self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
-        #         self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
+        for i in range(len(future_data)):
+            curr_n = future_steps[i]
+            for key, val in future_data[i].items():
+                self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
+                self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
 
-        # print('NEXT_OBS:', self.next_obs )
-        # print('#########\n################\n###################3\n')
-        # print('NORMALIZED_NEXT_OBS', self.normalized_next_obs)
+        print('NEXT_OBS:', self.next_obs )
+        print('#########\n################\n###################3\n')
+        print('NORMALIZED_NEXT_OBS', self.normalized_next_obs)
         # sys.exit(1)
 
         return None
@@ -929,7 +929,7 @@ class EnergyPlusEnv(gym.Env):
 
         reward = reward_energy_times_cost_rate
         # reward = reward_energy
-        print('reward', reward)
+        #print('reward', reward)
 
         # NOTE: HARD-spiking penalty
         # PENALTY = None

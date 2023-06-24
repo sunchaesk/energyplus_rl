@@ -12,6 +12,7 @@ import io
 from urllib.request import urlopen, Request
 import pandas as pd
 
+import itertools
 
 def read_epw(filename, coerce_year=None):
     r'''
@@ -316,6 +317,8 @@ def parse_epw(csvdata, coerce_year=None):
     idx = idx.dt.tz_localize(int(meta['TZ'] * 3600))
     data.index = idx
 
+    data['minute'] = data['minute'].replace(0, pd.NaT).fillna(method='ffill').fillna(0).astype(int)
+
     return data, meta
 
 OUTDOOR_TEMP = 0 # exo
@@ -338,7 +341,7 @@ default_args = {'idf': '../in.idf',
                 'pmv_pickle_path': './pmv_cache.pickle'
                 }
 
-def _collect_data():
+def collect_data():
     outdoor_temp_data = []
     direct_solar_data = []
     horizontal_infrared_data = []
@@ -348,6 +351,8 @@ def _collect_data():
     env = base.EnergyPlusEnv(default_args)
     state = env.reset()
     done = False
+
+
     while not done:
         action = 0 # collecting exo states that are not dependent on action (indoor setpoints)
 
@@ -363,16 +368,33 @@ def _collect_data():
         #     print("HIT")
         #     sys.exit()
 
-        current_time = tuple([
+        current_time = [
             info['year'],
             info['month'],
             info['day'],
             info['hour'],
-            (info['minute'] // 10) * 10
-        ])
+            #(info['minute'] // 10) * 10
+        ]
+
         time_data.append(current_time)
 
         state = n_state
+
+    sequence = [10,20,30,40,50,60]
+    repeated_sequence = itertools.cycle(sequence)
+
+    temp_cnt = 0
+    temp_i = 0
+    while time_data[temp_i][3] == 0:
+        temp_cnt += 1
+        temp_i += 1
+
+    for i in range(6 - temp_cnt):
+        next(repeated_sequence)
+
+    for i in range(len(time_data)):
+        time_data[i].append(next(repeated_sequence))
+        time_data[i] = tuple(time_data[i])
 
     ret_dict = dict()
     for i in range(len(time_data)):
@@ -384,14 +406,17 @@ def _collect_data():
         }
     #print(ret_dict)
 
-    save = True
+    save = False # Currently saved from 6-1 ~ 7-15
     if save:
         with open('./exo-state.pt', 'wb') as handle:
             pickle.dump(ret_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print('SAVED!')
 
-def collect_data():
-
+def _collect_data():
+    ret = read_epw('../weather.epw')
+    data = ret[0]
+    for i in range(10):
+        print('hour', data.iloc[i]['hour'], 'minute', data.iloc[i]['minute'])
 
 if __name__ == "__main__":
     #_collect_data()
