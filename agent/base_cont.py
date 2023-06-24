@@ -15,6 +15,7 @@ import random
 
 import scipy
 import pickle
+import matplotlib.pyplot as plt
 
 import gymnasium as gym
 import numpy as np
@@ -461,9 +462,6 @@ class EnergyPlusRunner:
                 self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
                 self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
 
-        print('NEXT_OBS:', self.next_obs )
-        print('#########\n################\n###################3\n')
-        print('NORMALIZED_NEXT_OBS', self.normalized_next_obs)
         # sys.exit(1)
 
         return None
@@ -741,8 +739,10 @@ class EnergyPlusEnv(gym.Env):
             p = pickle.load(handle)
             self.PMV_CACHE = p
 
-    def masking_valid_actions(self, scale:tuple =(-1, 1)) -> tuple:
+    def _masking_valid_actions(self, scale:tuple =(-1, 1)) -> tuple:
         '''
+        DEPRECATED: change mask range to provide only the upper bound
+
         for Policy Gradient methods, find valid action values of the indoor air temperature
         NOTE: valid action value will be
         NOTE: make sure this function is called after the obs_vec has been updated
@@ -787,6 +787,35 @@ class EnergyPlusEnv(gym.Env):
             root2_scaled = self._rescale(root2, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
             self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (root2_scaled, root1_scaled)
             return (root2_scaled, root1_scaled) # tuple([lower root, higher root])
+
+    def masking_valid_actions(self, scale: tuple = (-1, 1)) -> tuple:
+        '''
+        updated masking valid actions
+        @return (lower_bound, upper_bound)
+        lower_bound fixed -> -1
+        '''
+        def f(x):
+            tr = self.last_next_state[2]
+            rh = self.last_next_state[3]
+            return self._compute_reward_thermal_comfort(x, tr, 0.1, rh) - self.acceptable_pmv
+
+        tr = self.last_next_state[2]
+        rh = self.last_next_state[3]
+        cache = self.PMV_CACHE.get((round(tr, 3), round(rh, 3)), False)
+        if cache:
+            return cache
+
+        pivot = None
+        xs = (x * 0.5 for x in range(0, 31))
+        for x in xs:
+            if f(x + 15) < 0:
+                pivot = x + 15
+
+        # guaranteed for pivot != None
+        root_upper = scipy.optimize.brentq(f, pivot, pivot + 20)
+        root_upper_scaled = self._rescale(root_upper, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
+        self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (scale[0], root_upper_scaled)
+        return (scale[0], root_upper_scaled)
 
 
     def retrieve_actuators(self):
@@ -1280,17 +1309,22 @@ if __name__ == "__main__":
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
 
-    for episode in range(10):
+    mask_upper = []
+    mask_lower = []
+
+    for episode in range(1):
         state = env.reset()
         done = False
         score = 0
 
         while not done:
             temp = env.masking_valid_actions()
+            mask_upper.append(temp[1])
+            mask_lower.append(temp[0])
             #print(temp)
             action = env.action_space.sample()
             #print(action)
-            action = [temp[1]]
+            action = [np.interp(action, [15, 30], [-1, 1])[0]]
             ret = n_state, reward, done, truncated, info = env.step(action)
 
             #print('n_state', n_state, len(n_state))
@@ -1298,6 +1332,11 @@ if __name__ == "__main__":
             score+=info['energy_reward']
 
 
+
+        x = list(range(len(mask_upper)))
+        plt.plot(x, mask_upper, 'b-')
+        plt.plot(x, mask_lower, 'r-')
+        plt.show()
         env.pickle_save_pmv_cache()
         scores.append(score)
         print("SCORES: ", scores)
