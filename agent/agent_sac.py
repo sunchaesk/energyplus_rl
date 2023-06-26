@@ -381,7 +381,9 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True, graph=False):
         action_after_clip = []
 
         while not done:
-            mask = env.masking_valid_actions(scale=(-1, 1))
+            #mask = env.masking_valid_actions(scale=(-1, 1))
+            mask = env.masking_conditional_valid_actions(scale=(-1,1))
+            print('mask', mask)
 
             action = agent.act(state, mask)
             action_pre_clip = action.numpy()
@@ -476,7 +478,7 @@ parser.add_argument("-env", type=str,default="Pendulum-v1", help="Environment na
 parser.add_argument("-info", type=str, help="Information or name of the run")
 parser.add_argument("-ep", type=int, default=100, help="The amount of training episodes, default is 100")
 parser.add_argument("-seed", type=int, default=0, help="Seed for the env and torch network weights, default is 0")
-parser.add_argument("-lr", type=float, default=1e-6, help="Learning rate of adapting the network weights, default is 5e-4")
+parser.add_argument("-lr", type=float, default=5e-4, help="Learning rate of adapting the network weights, default is 5e-4")
 parser.add_argument("-a", "--alpha", type=float,default=0.1, help="entropy alpha value, if not choosen the value is leaned by the agent")
 parser.add_argument("-layer_size", type=int, default=256, help="Number of nodes per neural network layer, default is 256")
 parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e7), help="Size of the Replay memory, default is 1e6")

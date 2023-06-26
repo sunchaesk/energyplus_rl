@@ -440,31 +440,27 @@ class EnergyPlusRunner:
         self.normalized_next_obs['cost_rate_signal'] = normalized_cost_rate_signal
         self.next_obs['cost_rate_signal'] = cost_rate_signal
 
-        # setting forecast is not part of final interface, forecast boolean is only for debugging purposes
-        forecast = True
-        if forecast:
-            #add forecast to the observation states
-            with open('./exo-state.pt', 'rb') as handle:
-                exo_states_cache = pickle.load(handle)
-            ## create forecast list (start with 1, to the t + N) e.g: 1, 2, 3, 4, 5 || 1, 3, 5, 7
-            #future_steps = list(range(1, 4))
-            future_steps = [1,4,7,10,13,16]
-            future_data = []
-            # round minute
-            minute = 60 if round(minute, -1) > 60 else round(minute, -1)
-            #print(year, month, day, hour, minute)
+        #add forecast to the observation states
+        with open('./exo-state.pt', 'rb') as handle:
+            exo_states_cache = pickle.load(handle)
+        ## create forecast list (start with 1, to the t + N) e.g: 1, 2, 3, 4, 5 || 1, 3, 5, 7
+        future_steps = list(range(1, 4))
+        future_data = []
+        # round minute
+        minute = 60 if round(minute, -1) > 60 else round(minute, -1)
+        #print(year, month, day, hour, minute)
 
-            for n in future_steps:
-                n_future_time = tuple([year, month, day, hour, minute])  # this is current time
-                for i in range(n):
-                    n_future_time = self._add_10_minutes(n_future_time)
-                future_data.append(exo_states_cache[n_future_time])
+        for n in future_steps:
+            n_future_time = tuple([year, month, day, hour, minute])  # this is current time
+            for i in range(n):
+                n_future_time = self._add_10_minutes(n_future_time)
+            future_data.append(exo_states_cache[n_future_time])
 
-            for i in range(len(future_data)):
-                curr_n = future_steps[i]
-                for key, val in future_data[i].items():
-                    self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
-                    self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
+        for i in range(len(future_data)):
+            curr_n = future_steps[i]
+            for key, val in future_data[i].items():
+                self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
+                self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
 
         # sys.exit(1)
 
@@ -666,10 +662,10 @@ class EnergyPlusEnv(gym.Env):
         self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
-        # acceptable PMV value from 0
-        self.acceptable_pmv = 0.7
+        # acceptable PMV distance from PMV = 0
+        self.acceptable_pmv = 0.1
 
-        # used for fcn masking_conditional_valid_actions()
+        # for fcn masking_conditional_valid_actions
         self.action_bound_store = None
 
         # Caching PMV values to accelerate
@@ -705,10 +701,10 @@ class EnergyPlusEnv(gym.Env):
         # )
 
         low_obs = np.array(
-            [-1] * 35
+            [-1] * 23
         )
         high_obs = np.array(
-            [1] * 35
+            [1] * 23
         )
         self.observation_space = gym.spaces.Box(
             low=low_obs, high=high_obs, dtype=np.float64
@@ -858,47 +854,19 @@ class EnergyPlusEnv(gym.Env):
         def f(x):
             tr = self.last_next_state[2]
             rh = self.last_next_state[3]
-            return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
+            return self._compute_reward_thermal_comfort(x, tr, 0.1, rh) - self.acceptable_pmv
 
-        # code that's run if prev timestep PMV was not satisfied
         if self.action_bound_store != None:
             temp_bound = self.action_bound_store
             self.action_bound_store = None
-
-            if f(indoor_temp) > 0:
-                tr = self.last_next_state[2]
-                rh = self.last_next_state[3]
-                cache = self.PMV_CACHE.get((round(tr, 3), round(rh,3)), False)
-                if cache:
-                    self.action_bound_store = cache
-                else:
-                    pivot = None
-                    xs = (x * 0.5 for x in range(0, 31))
-                    for x in xs:
-                        if f(x + 15) < 0:
-                            pivot = x + 15
-                    if pivot == None:
-                        ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
-                        self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = tuple([ret - 0.1, ret + 0.1])
-                        self.action_bound_store = tuple([ret - 0.1, ret + 0.1])
-                    else:
-                        root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
-                        root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
-                        root1_scaled = np.interp(root1, [15,30], [-1,1])
-                        root2_scaled = np.interp(root2, [15,30], [-1,1])
-                        self.PMV_CACHE[(round(tr,3), round(rh,3))] = (root2_scaled, root1_scaled)
-                        self.action_bound_store = (root2_scaled, root1_scaled)
-
             return temp_bound
 
-        # code block below runs if prev timestep PMV was satisfied
         if f(indoor_temp) > 0:
             tr = self.last_next_state[2]
             rh = self.last_next_state[3]
             cache = self.PMV_CACHE.get((round(tr,3), round(rh, 3)), False)
             if cache:
                 self.action_bound_store = cache
-                return scale
             else:
                 pivot = None
                 xs = (x * 0.5 for x in range(0, 31))
@@ -910,9 +878,7 @@ class EnergyPlusEnv(gym.Env):
                     ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
                     self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = tuple([ret - 0.1, ret + 0.1])
                     self.action_bound_store = tuple([ret - 0.1, ret + 0.1])
-                    return scale
                 else:
-                    #print('pivot', pivot, 'f(pivot)', f(pivot))
                     root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
                     root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
                     root1_scaled = np.interp(root1, [15, 30], [-1, 1])
@@ -920,10 +886,10 @@ class EnergyPlusEnv(gym.Env):
                     self.PMV_CACHE[(round(tr,3), round(rh,3))] = (root2_scaled, root1_scaled)
                     #return (root2_scaled, root1_scaled)
                     self.action_bound_store = (root2_scaled, root1_scaled)
-                    return scale
         else:
             self.action_bound_store = None
-            return scale
+
+
 
 
     def retrieve_actuators(self):
