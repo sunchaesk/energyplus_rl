@@ -205,14 +205,14 @@ def plot_list(d_list, style='fit'):
             f.close()
 
 
+
+
 if __name__ == "__main__":
-    l = [
-        ('./logs/sac-energy.txt', 'unnormalized observation space'),
-        # ('./logs/sac-linear8000.txt', 'linear 8000'),
-        # ('./logs/sac-linear9000.txt', 'linear 9000'),
-        # ('./logs/sac-linear15000.txt', 'linear 15000'),
-        ('./logs/sac-scores.txt', 'w/ Hour of Week & Cost Rate Signal')
-    ]
+    # l = [
+    #     ('./logs/scores-0.txt', 'no forecast'),
+    #     ('./logs/scores-4.txt', '4 steps forecast'),
+    #     ('./logs/scores-3interval.txt', '1 4 7 10 13 16 steps forecast'),
+    # ]
     # plot_list(l, style='all')
     plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
     #plot_penalty()

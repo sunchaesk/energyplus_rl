@@ -1060,7 +1060,7 @@ class EnergyPlusEnv(gym.Env):
             obs_vec[3]
         )
         # compute reward cost
-        reward_cost = self._compute_reward_cost(meter) # kilowatts * cost (cents/kWh)
+        reward_cost = self._compute_reward_cost(meter) # watts * cost (cents/kWh)
 
         reward_watts = self._compute_reward_energy_watts(meter)
 
@@ -1068,13 +1068,40 @@ class EnergyPlusEnv(gym.Env):
 
         reward_energy_times_cost_rate = reward_energy * current_cost_rate
 
-        # NOTE: for RL training without action masking
-        scaled_reward_thermal_comfort = np.interp(reward_thermal_comfort, [-2.8, 0], [-1000, 0])
-        scaled_reward_cost = np.interp(reward_cost, [-36, 0], [-1000, 0])
-        #print('scaled thermal', scaled_reward_thermal_comfort, 'scaled cost', scaled_reward_cost)
+        reward = reward_energy_times_cost_rate
+        # reward = reward_energy
+        #print('reward', reward)
 
-        reward = scaled_reward_cost + scaled_reward_thermal_comfort
+        # NOTE: HARD-spiking penalty
+        # PENALTY = None
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     PENALTY = -1e20
+        # else:
+        #     PENALTY = 0
 
+        #NOTE: soft-penalty sigmoid with adjustable penalty param
+        # PENALTY_COEFF = -7000
+        # def penalty_sigmoid(x):
+        #     return PENALTY_COEFF * (1 / (1 + math.exp(-(x-0))))
+        # PENALTY = None
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
+        #     PENALTY = penalty_sigmoid(penalty_factor)
+        #     print('pen', PENALTY)
+        # else:
+        #     PENALTY = 0
+
+        # NOTE: soft-penalty linear
+        # PENALTY = None
+        # PENALTY_COEFF = -22000
+        # def penalty_linear(pmv_diff):
+        #     return PENALTY_COEFF * pmv_diff
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
+        #     PENALTY = penalty_linear(penalty_factor)
+        #     #print('pen', PENALTY, penalty_factor)
+        # else:
+        #     PENALTY = 0
 
         PENALTY = 0
 
@@ -1154,7 +1181,7 @@ class EnergyPlusEnv(gym.Env):
         clo: set as a constant value of 0.5
         -> clo_relative is pre-computed ->
 
-        @return PMV (+ve)
+        @return PPD
         '''
         def pmv_ppd_optimized(tdb, tr, vr, rh, met, clo, wme):
             pa = rh * 10 * math.exp(16.6536 - 4030.183 / (tdb + 235))
@@ -1281,8 +1308,8 @@ class EnergyPlusEnv(gym.Env):
         v_rel = v_relative(v, 1.4)
         #print('V_REL', v_rel)
         pmv = pmv_ppd_optimized(tdb, tr, 0.1, rh, 1.4, clo_dynamic, 0)
-        # now calc and return
-        return -abs(pmv) # return abs ( -> distance from PMV = 0 ) / negative (to minimize)
+        # now calc and return ppd
+        return pmv
     #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
 
     @staticmethod
@@ -1394,22 +1421,16 @@ if __name__ == "__main__":
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
 
-    comfort = []
-    cost = []
-
     benchmark_actions = np.arange(15, 30.1, 0.1)
-    for episode in range(1):
+    for episode in range(len(benchmark_actions)):
         state = env.reset()
         done = False
         score = 0
 
         while not done:
-            action = random.uniform(-1, 1)
+            action = benchmark_actions[episode]
+            action = np.interp(action, [15, 30], [-1, 1])
             ret = n_state, reward, done, truncated, info = env.step([action])
-            print('reward', reward)
-            #print('cost:', info['cost_reward'], 'energy', info['energy_reward'], 'comfort', info['comfort_reward'])
-            cost.append(info['cost_reward'])
-            comfort.append(info['comfort_reward'])
 
             score += info['energy_reward']
 
@@ -1437,7 +1458,8 @@ if __name__ == "__main__":
         # env.pickle_save_pmv_cache()
         # scores.append(score)
     print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?
-    print('cost', min(cost), max(cost))
-    print('comfort', min(comfort), max(comfort))
-# cost -35.584267897215526 -0.0
-# comfort 0.0009771836077514854 2.1514497746705716
+    with open('./logs/benchmark.txt', 'w') as f:
+        ret_str = ""
+        for i in range(len(benchmark_actions)):
+            ret_str += str(benchmark_actions[i]) + ',' + str(scores[i]) + '\n'
+        f.write(ret_str)
