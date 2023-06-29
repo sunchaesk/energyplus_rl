@@ -4,8 +4,7 @@ BY571/SAC.py
 """
 
 # import base_pmv as base
-#import base_cont as base
-import base
+import base_cont as base
 
 import sys
 import numpy as np
@@ -338,11 +337,12 @@ class ReplayBuffer:
 
 
 def save_reward(score:float) -> None:
-    f_name = './logs/sac-scores.txt'
+    #f_name = './logs/sac-scores.txt'
+    f_name=args.output + '/scores.txt'
     with open(f_name, 'a') as scores_f:
         scores_f.write(str(score) + '\n')
 
-def SAC(n_episodes=3000, max_t=500, print_every=2, load=True, graph=False):
+def SAC(n_episodes=200000, max_t=500, print_every=2, load=True, graph=False):
 
     scores_deque = deque(maxlen=100)
     average_100_scores = []
@@ -350,7 +350,8 @@ def SAC(n_episodes=3000, max_t=500, print_every=2, load=True, graph=False):
     start_episode = 0
     if load:
         try:
-            checkpoint = torch.load('./model/sac-checkpoint.pt')
+            #checkpoint = torch.load('./model/sac-checkpoint.pt')
+            checkpoint = torch.load(args.output + 'model.pt')
             agent.actor_local.load_state_dict(checkpoint['actor_state_dict'])
             agent.actor_optimizer.load_state_dict(checkpoint['actor_optimizer'])
             agent.critic1.load_state_dict(checkpoint['critic1_state_dict'])
@@ -383,7 +384,8 @@ def SAC(n_episodes=3000, max_t=500, print_every=2, load=True, graph=False):
 
         while not done:
             #mask = env.masking_valid_actions(scale=(-1, 1))
-            mask = env.masking_conditional_valid_actions(scale=(-1,1))
+            #mask = env.masking_conditional_valid_actions(scale=(-1,1))
+            mask = (-1, 1)
             #print('mask', mask)
 
             action = agent.act(state, mask)
@@ -438,8 +440,10 @@ def SAC(n_episodes=3000, max_t=500, print_every=2, load=True, graph=False):
         ax2.axhline(0.7, color='black', linestyle='--')
         ax2.axhline(-0.7, color='black', linestyle='--')
         fig.tight_layout()
+        #fig.savefig('./logs/curr')
         if graph:
-            plt.show()
+            print('do nothing')
+            #plt.show()
         # time.sleep(1)
         #plt.close('all')
 
@@ -463,7 +467,7 @@ def SAC(n_episodes=3000, max_t=500, print_every=2, load=True, graph=False):
                 'critic2_state_dict': agent.critic2.state_dict(),
                 'critic1_optimizer': agent.critic1_optimizer.state_dict(),
                 'critic2_optimizer': agent.critic2_optimizer.state_dict()
-            }, './model/sac-checkpoint.pt')
+            }, args.output + '/model.pt')
 
 
     # for loop end
@@ -477,9 +481,9 @@ def SAC(n_episodes=3000, max_t=500, print_every=2, load=True, graph=False):
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("-env", type=str,default="Pendulum-v1", help="Environment name")
 parser.add_argument("-info", type=str, help="Information or name of the run")
-parser.add_argument("-ep", type=int, default=100, help="The amount of training episodes, default is 100")
+parser.add_argument("-ep", type=str, default='3000', help="The amount of training episodes, default is 100")
 parser.add_argument("-seed", type=int, default=0, help="Seed for the env and torch network weights, default is 0")
-parser.add_argument("-lr", type=float, default=5e-4, help="Learning rate of adapting the network weights, default is 5e-4")
+parser.add_argument("-lr", type=float, default=5e-5, help="Learning rate of adapting the network weights, default is 5e-4")
 parser.add_argument("-a", "--alpha", type=float,default=0.1, help="entropy alpha value, if not choosen the value is leaned by the agent")
 parser.add_argument("-layer_size", type=int, default=256, help="Number of nodes per neural network layer, default is 256")
 parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e7), help="Size of the Replay memory, default is 1e6")
@@ -488,7 +492,12 @@ parser.add_argument("-bs", "--batch_size", type=int, default=256, help="Batch si
 parser.add_argument("-t", "--tau", type=float, default=1e-2, help="Softupdate factor tau, default is 1e-2")
 parser.add_argument("-g", "--gamma", type=float, default=0.95, help="discount factor gamma, default is 0.99")
 parser.add_argument("--saved_model", type=str, default=None, help="Load a saved model to perform a test run!")
+parser.add_argument("-lmbda", type=str, default=None, required=True, help="thermal comfort linear scalarization weight")
+parser.add_argument('-output', type=str, default=None, required=True, help='model directory')
 args = parser.parse_args()
+args.lmbda = float(args.lmbda)
+args.ep = int(args.ep)
+
 
 
 default_args = {'idf': '../in.idf',
@@ -501,54 +510,55 @@ default_args = {'idf': '../in.idf',
                 'start_date': (6,21),
                 'end_date': (8,21),
                 'pmv_pickle_available': True,
-                'pmv_pickle_path': './pmv_cache.pickle'
+                'pmv_pickle_path': './pmv_cache.pickle',
+                'lmbda': args.lmbda
                 }
 
-if __name__ == "__main__":
-    print('HIT')
-    env_name = args.env
-    seed = args.seed
-    n_episodes = args.ep
-    GAMMA = args.gamma
-    TAU = args.tau
-    HIDDEN_SIZE = args.layer_size
-    BUFFER_SIZE = int(args.replay_memory)
-    BATCH_SIZE = args.batch_size        # minibatch size
-    LR_ACTOR = args.lr         # learning rate of the actor
-    LR_CRITIC = args.lr        # learning rate of the critic
-    FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 1000
-    print('################3')
-    print("ALPHA", FIXED_ALPHA)
-    print('################3')
-    #saved_model = args.saved_model
-    saved_model = None
+#if __name__ == "__main__":
+print('HIT')
+env_name = args.env
+seed = args.seed
+n_episodes = args.ep
+GAMMA = args.gamma
+TAU = args.tau
+HIDDEN_SIZE = args.layer_size
+BUFFER_SIZE = int(args.replay_memory)
+BATCH_SIZE = args.batch_size        # minibatch size
+LR_ACTOR = args.lr         # learning rate of the actor
+LR_CRITIC = args.lr        # learning rate of the critic
+FIXED_ALPHA = args.alpha
+FIXED_ALPHA = None
+print('################3')
+print("ALPHA", FIXED_ALPHA)
+print('################3')
+#saved_model = args.saved_model
+saved_model = None
 
-    t0 = time.time()
-    #writer = SummaryWriter("temp/" + 'pendulum')
-    #env = gym.make(env_name)
-    env = base.EnergyPlusEnv(default_args)
+t0 = time.time()
+#writer = SummaryWriter("temp/" + 'pendulum')
+#env = gym.make(env_name)
+env = base.EnergyPlusEnv(default_args)
 
-    # action_high = env.action_space.high[0] #NOTE: action [-1, 1] converted to range anywas in the base py
-    # action_low = env.action_space.low[0]
-    action_high = 1
-    action_low = -1
+# action_high = env.action_space.high[0] #NOTE: action [-1, 1] converted to range anywas in the base py
+# action_low = env.action_space.low[0]
+action_high = 1
+action_low = -1
 
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+torch.manual_seed(seed)
+np.random.seed(seed)
 
-    state_size = env.observation_space.shape[0]
-    print('###########')
-    print(state_size)
-    print('###########')
-    action_size = env.action_space.shape[0]
-    agent = Agent(state_size=state_size, action_size=action_size, random_seed=seed,hidden_size=HIDDEN_SIZE, action_prior="uniform") #"normal"
+state_size = env.observation_space.shape[0]
+print('###########')
+print(state_size)
+print('###########')
+action_size = env.action_space.shape[0]
+agent = Agent(state_size=state_size, action_size=action_size, random_seed=seed,hidden_size=HIDDEN_SIZE, action_prior="uniform") #"normal"
 
-    if saved_model != None:
-        agent.actor_local.load_state_dict(torch.load(saved_model))
-        play()
-    else:
-        SAC(n_episodes=args.ep, max_t=100000, print_every=args.print_every,load=True, graph=False)
-    t1 = time.time()
-    env.close()
-    print("training took {} min!".format((t1-t0)/60))
+if saved_model != None:
+    agent.actor_local.load_state_dict(torch.load(saved_model))
+    play()
+else:
+    SAC(n_episodes=args.ep, max_t=100000, print_every=args.print_every,load=True, graph=False)
+t1 = time.time()
+env.close()
+print("training took {} min!".format((t1-t0)/60))

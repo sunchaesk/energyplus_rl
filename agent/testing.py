@@ -1,32 +1,86 @@
-# -*- coding: utf-8 -*-
-"""
-BY571/SAC.py
-"""
 
-# import base_pmv as base
-#import base_cont as base
-import base
+'''
+pip installed mplcursors, mpld3
+'''
 
-import sys
-import numpy as np
+import time
 import random
 
+import os
+import sys
+
 import matplotlib.pyplot as plt
-import gym
-from collections import namedtuple, deque
+import mpld3
+from mpld3 import plugins
+
+import numpy as np
+import json
+from collections import deque, namedtuple
+
+import base_cont as base
+# import base_pmv as base
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal, MultivariateNormal
 from torch.distributions.uniform import Uniform
-
 import torch.optim as optim
-import time
-from torch.utils.tensorboard import SummaryWriter
 import argparse
 
+parser = argparse.ArgumentParser(description="")
+parser.add_argument("-env", type=str,default="Pendulum-v1", help="Environment name")
+parser.add_argument("-info", type=str, help="Information or name of the run")
+parser.add_argument("-ep", type=str, default='3000', help="The amount of training episodes, default is 100")
+parser.add_argument("-seed", type=int, default=0, help="Seed for the env and torch network weights, default is 0")
+parser.add_argument("-lr", type=float, default=5e-5, help="Learning rate of adapting the network weights, default is 5e-4")
+parser.add_argument("-a", "--alpha", type=float,default=0.1, help="entropy alpha value, if not choosen the value is leaned by the agent")
+parser.add_argument("-layer_size", type=int, default=256, help="Number of nodes per neural network layer, default is 256")
+parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e7), help="Size of the Replay memory, default is 1e6")
+parser.add_argument("--print_every", type=int, default=2, help="Prints every x episodes the average reward over x episodes")
+parser.add_argument("-bs", "--batch_size", type=int, default=256, help="Batch size, default is 256")
+parser.add_argument("-t", "--tau", type=float, default=1e-2, help="Softupdate factor tau, default is 1e-2")
+parser.add_argument("-g", "--gamma", type=float, default=0.95, help="discount factor gamma, default is 0.99")
+parser.add_argument("--saved_model", type=str, default=None, help="Load a saved model to perform a test run!")
+parser.add_argument("-lmbda", type=str, default=None, required=True, help="thermal comfort linear scalarization weight")
+parser.add_argument('-output', type=str, default=None, required=True, help='model directory')
+args = parser.parse_args()
+args.lmbda = float(args.lmbda)
+args.ep = int(args.ep)
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+seed = args.seed
+n_episodes = args.ep
+GAMMA = args.gamma
+TAU = args.tau
+HIDDEN_SIZE = args.layer_size
+BUFFER_SIZE = int(args.replay_memory)
+BATCH_SIZE = args.batch_size
+LR_ACTOR = args.lr
+LR_CRITIC = args.lr
+FIXED_ALPHA = args.alpha
+
+default_args = {'idf': '../in.idf',
+                'epw': '../weather.epw',
+                'csv': True,
+                'output': './output',
+                'timesteps': 1000000.0,
+                'num_workers': 2,
+                'annual': False,# for some reasons if not annual, funky results
+                'start_date': (6,21),
+                'end_date': (8,21),
+                'pmv_pickle_available': True,
+                'pmv_pickle_path': 'pmv_cache.pickle',
+                'lmbda': args.lmbda
+                }
+
+env = base.EnergyPlusEnv(default_args)
+
+action_high = 1
+action_low = -1
+action_size = env.action_space.shape[0]
+state_size = env.observation_space.shape[0]
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
@@ -337,218 +391,104 @@ class ReplayBuffer:
         return len(self.memory)
 
 
-def save_reward(score:float) -> None:
-    f_name = './logs/sac-scores.txt'
-    with open(f_name, 'a') as scores_f:
-        scores_f.write(str(score) + '\n')
+def test():
+    agent = Agent(state_size=state_size, action_size=action_size, random_seed=seed, hidden_size=HIDDEN_SIZE, action_prior='uniform')
+    checkpoint = torch.load(args.output + '/model.pt')
+    agent.actor_local.load_state_dict(checkpoint['actor_state_dict'])
+    agent.actor_local.eval()
 
-def SAC(n_episodes=3000, max_t=500, print_every=2, load=True, graph=False):
+    steps = 0
+    episode_energy_reward = 0
+    episode_cost_reward = 0
 
-    scores_deque = deque(maxlen=100)
-    average_100_scores = []
+    cooling_actuator_value = []
+    heating_actuator_value = []
+    indoor_temperature = []
+    outdoor_temperature = []
+    thermal_comfort = []
 
-    start_episode = 0
-    if load:
-        try:
-            checkpoint = torch.load('./model/sac-checkpoint.pt')
-            agent.actor_local.load_state_dict(checkpoint['actor_state_dict'])
-            agent.actor_optimizer.load_state_dict(checkpoint['actor_optimizer'])
-            agent.critic1.load_state_dict(checkpoint['critic1_state_dict'])
-            agent.critic1_optimizer.load_state_dict(checkpoint['critic1_optimizer'])
-            agent.critic2.load_state_dict(checkpoint['critic2_state_dict'])
-            agent.critic2_optimizer.load_state_dict(checkpoint['critic2_optimizer'])
-            start_episode = checkpoint['episode']
-        except:
-            print('ERROR loading model... starting training from scratch')
-
-    for i_episode in range(start_episode + 1, n_episodes+1):
-    # for i_episode in range(1):
-
+    for i_episode in range(1):
         state = env.reset()
+        print('state', state)
         state = state.reshape((1,state_size))
-        score = 0
-        #for t in range(max_t):
         done = False
 
-        t = 0
-
-        # DEBUG
-        rewards = []
-        comfort = []
-        act = []
-        comfort_bound_high = []
-        comfort_bound_low = []
-        action_before_clip = []
-        action_after_clip = []
-
         while not done:
-            #mask = env.masking_valid_actions(scale=(-1, 1))
-            mask = env.masking_conditional_valid_actions(scale=(-1,1))
-            #print('mask', mask)
-
+            mask = (-1, 1)
             action = agent.act(state, mask)
-            action_pre_clip = action.numpy()
-            action_v = np.clip(action_pre_clip*action_high, action_low, action_high)
-            #print(action_v)
-            next_state, reward, done, truncated, info = env.step(action_v)
-            next_state = next_state.reshape((1,state_size))
-            #print('REWARD', reward)
+            action_v = action[0].numpy()
 
+            action_v = np.clip(action_v * action_high, action_low, action_high)
 
-            agent.step(state, action, reward, next_state, done, t)
-            t += 1
+            next_state, reward, done, truncated, info = env.step([action_v])
 
-            # DEBUG
-            action_before_clip.append(action_pre_clip[0])
-            rewards.append(reward)
-            comfort.append(info['comfort_reward'])
-                # temp = env.masking_valid_actions()
-                # comfort_bound_high.append(temp[1])
-                # comfort_bound_low.append(temp[0])
-
+            next_state = next_state.reshape((1, state_size))
             state = next_state
 
-            #DEBUG
-            score += info['energy_reward']
-            act.append(action_v[0])
-            rewards.append(reward)
-            comfort.append(info['comfort_reward'])
+            steps += 1
 
-
+            episode_energy_reward += info['energy_reward']
+            episode_cost_reward  += info['cost_reward']
+            cooling_actuator_value.append(info['actuators'][0])
+            heating_actuator_value.append(info['actuators'][1])
+            indoor_temperature.append(info['obs_vec'][1])
+            outdoor_temperature.append(info['obs_vec'][0])
+            thermal_comfort.append(info['comfort_reward'])
             if done:
                 break
 
-        # DEBUG
-        env.pickle_save_pmv_cache()
-        start = 0
-        end = 300
-        x = list(range(end - start))
+        steps_start = 10
+        steps = 310
+        size = steps - steps_start
 
-        #print(rewards)
-        #print('mean', np.mean(rewards))
-        # print(x)
-        # print(act)
+        print('##########################')
+        print('EP reward:', episode_energy_reward)
+        print('##########################')
 
+        x = list(range(size))
         fig, ax1 = plt.subplots()
-        ax1.set_title('First 300 steps of training episode {}'.format(i_episode))
-        ax1.scatter(x[start:end], act[start:end], color='red')
 
-        ax2 = ax1.twinx()
-        ax2.plot(x[start:end], comfort[start:end], color='blue', linestyle='-')
-        ax2.axhline(0.7, color='black', linestyle='--')
-        ax2.axhline(-0.7, color='black', linestyle='--')
+        acceptable_pmv = 0.7
+
+        plt.title('acceptable_pmv: {}'.format(acceptable_pmv))
+        ax1.set_xlabel('steps')
+        ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
+        cooling_actuator = ax1.plot(x, cooling_actuator_value[steps_start:steps], label='cooling actuator value')
+        heating_actuator = ax1.plot(x, heating_actuator_value[steps_start:steps], label='heating actuator value')
+        indoor_temp = ax1.plot(x, indoor_temperature[steps_start:steps], label='indoor temperature')
+        outdoor_temp = ax1.plot(x, outdoor_temperature[steps_start:steps], label='outdoor temperature')
+        ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+        # ax2 = ax1.twinx()
+        # ax2.set_ylabel('PMV [-3, 3] ')
+        # ax2.axhline(y=acceptable_pmv, color='black',linestyle='--')
+        # ax2.axhline(y=-acceptable_pmv, color='black',linestyle='--')
+        # thermal_comf = ax2.plot(x, thermal_comfort[steps_start:steps], color='black')
+
+        interactive_legend = plugins.InteractiveLegendPlugin([
+            cooling_actuator,
+            heating_actuator,
+            indoor_temp,
+            outdoor_temp,
+            #thermal_comf
+        ],[
+            'cooling actuator setpoint',
+            'heating actuator setpoint',
+            'indoor temperature',
+            'outdoor temperature',
+            #'thermal comfort'
+        ])
+        plugins.connect(fig, interactive_legend)
+
+        html_plot = mpld3.fig_to_html(fig)
+
+        with open(args.output + '/interactive_plot.html', 'w') as f:
+            f.write(html_plot)
+
+        ax1.legend()
         fig.tight_layout()
-        if graph:
-            plt.show()
-        # time.sleep(1)
-        #plt.close('all')
-
-        scores_deque.append(score)
-        # writer.add_scalar("Reward", score, i_episode)
-        # writer.add_scalar("average_X", np.mean(scores_deque), i_episode)
-        average_100_scores.append(np.mean(scores_deque))
-
-        print('##################################')
-        print('\rEpisode {} Reward: {:.2f}  Average100 Score: {:.2f}'.format(i_episode, score, np.mean(scores_deque)), end="")
-        print('##################################')
-        save_reward(score)
-        if i_episode % print_every == 0:
-            print('\rEpisode {}  Reward: {:.2f}  Average100 Score: {:.2f}'.format(i_episode, score, np.mean(scores_deque)))
-            print('\rSaving Current model at episode {}'.format(i_episode))
-            torch.save({
-                'episode': i_episode,
-                'actor_state_dict': agent.actor_local.state_dict(),
-                'actor_optimizer': agent.actor_optimizer.state_dict(),
-                'critic1_state_dict': agent.critic1.state_dict(),
-                'critic2_state_dict': agent.critic2.state_dict(),
-                'critic1_optimizer': agent.critic1_optimizer.state_dict(),
-                'critic2_optimizer': agent.critic2_optimizer.state_dict()
-            }, './model/sac-checkpoint.pt')
+        plt.savefig(args.output + '/plot')
+        plt.show()
 
 
-    # for loop end
-    #torch.save(agent.actor_local.state_dict(), 'pendulum' + ".pt")
-
-
-
-
-
-
-parser = argparse.ArgumentParser(description="")
-parser.add_argument("-env", type=str,default="Pendulum-v1", help="Environment name")
-parser.add_argument("-info", type=str, help="Information or name of the run")
-parser.add_argument("-ep", type=int, default=100, help="The amount of training episodes, default is 100")
-parser.add_argument("-seed", type=int, default=0, help="Seed for the env and torch network weights, default is 0")
-parser.add_argument("-lr", type=float, default=5e-4, help="Learning rate of adapting the network weights, default is 5e-4")
-parser.add_argument("-a", "--alpha", type=float,default=0.1, help="entropy alpha value, if not choosen the value is leaned by the agent")
-parser.add_argument("-layer_size", type=int, default=256, help="Number of nodes per neural network layer, default is 256")
-parser.add_argument("-repm", "--replay_memory", type=int, default=int(1e7), help="Size of the Replay memory, default is 1e6")
-parser.add_argument("--print_every", type=int, default=2, help="Prints every x episodes the average reward over x episodes")
-parser.add_argument("-bs", "--batch_size", type=int, default=256, help="Batch size, default is 256")
-parser.add_argument("-t", "--tau", type=float, default=1e-2, help="Softupdate factor tau, default is 1e-2")
-parser.add_argument("-g", "--gamma", type=float, default=0.95, help="discount factor gamma, default is 0.99")
-parser.add_argument("--saved_model", type=str, default=None, help="Load a saved model to perform a test run!")
-args = parser.parse_args()
-
-
-default_args = {'idf': '../in.idf',
-                'epw': '../weather.epw',
-                'csv': True,
-                'output': './output',
-                'timesteps': 1000000.0,
-                'num_workers': 2,
-                'annual': False,
-                'start_date': (6,21),
-                'end_date': (8,21),
-                'pmv_pickle_available': True,
-                'pmv_pickle_path': './pmv_cache.pickle'
-                }
-
-if __name__ == "__main__":
-    print('HIT')
-    env_name = args.env
-    seed = args.seed
-    n_episodes = args.ep
-    GAMMA = args.gamma
-    TAU = args.tau
-    HIDDEN_SIZE = args.layer_size
-    BUFFER_SIZE = int(args.replay_memory)
-    BATCH_SIZE = args.batch_size        # minibatch size
-    LR_ACTOR = args.lr         # learning rate of the actor
-    LR_CRITIC = args.lr        # learning rate of the critic
-    FIXED_ALPHA = args.alpha
-    FIXED_ALPHA = 1000
-    print('################3')
-    print("ALPHA", FIXED_ALPHA)
-    print('################3')
-    #saved_model = args.saved_model
-    saved_model = None
-
-    t0 = time.time()
-    #writer = SummaryWriter("temp/" + 'pendulum')
-    #env = gym.make(env_name)
-    env = base.EnergyPlusEnv(default_args)
-
-    # action_high = env.action_space.high[0] #NOTE: action [-1, 1] converted to range anywas in the base py
-    # action_low = env.action_space.low[0]
-    action_high = 1
-    action_low = -1
-
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-
-    state_size = env.observation_space.shape[0]
-    print('###########')
-    print(state_size)
-    print('###########')
-    action_size = env.action_space.shape[0]
-    agent = Agent(state_size=state_size, action_size=action_size, random_seed=seed,hidden_size=HIDDEN_SIZE, action_prior="uniform") #"normal"
-
-    if saved_model != None:
-        agent.actor_local.load_state_dict(torch.load(saved_model))
-        play()
-    else:
-        SAC(n_episodes=args.ep, max_t=100000, print_every=args.print_every,load=True, graph=False)
-    t1 = time.time()
-    env.close()
-    print("training took {} min!".format((t1-t0)/60))
+test()

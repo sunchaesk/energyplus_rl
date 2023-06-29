@@ -670,6 +670,9 @@ class EnergyPlusEnv(gym.Env):
         self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
+        # lmbda
+        self.lmbda = env_config['lmbda']
+
         # acceptable PMV value from 0
         self.acceptable_pmv = 0.7
 
@@ -1071,9 +1074,16 @@ class EnergyPlusEnv(gym.Env):
         # NOTE: for RL training without action masking
         scaled_reward_thermal_comfort = np.interp(reward_thermal_comfort, [-2.8, 0], [-1000, 0])
         scaled_reward_cost = np.interp(reward_cost, [-36, 0], [-1000, 0])
+
+        lambda_scaled_reward_thermal_comfort = self.lmbda * scaled_reward_thermal_comfort
+        # print('#####')
+        # print('lambda_scaled', lambda_scaled_reward_thermal_comfort)
+        # print('lambda', self.lmbda)
+        # print('scaled', scaled_reward_thermal_comfort)
+        # print('#####')
         #print('scaled thermal', scaled_reward_thermal_comfort, 'scaled cost', scaled_reward_cost)
 
-        reward = scaled_reward_cost + scaled_reward_thermal_comfort
+        reward = scaled_reward_cost + lambda_scaled_reward_thermal_comfort
 
 
         PENALTY = 0
