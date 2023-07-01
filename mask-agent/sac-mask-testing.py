@@ -395,8 +395,7 @@ def test(checkpoint_path, state_size):
 
         while True:
             # temp = env.masking_conditional_valid_actions()
-            temp = env.masking_valid_actions()
-            temp = (-1, 1)
+            temp = env.masking_conditional_valid_actions()
             action = agent.act(state, temp)
             action_v = action[0].numpy()
 
@@ -440,7 +439,7 @@ def test(checkpoint_path, state_size):
     x = list(range(size))
     fig, ax1 = plt.subplots()
 
-    acceptable_pmv = 0.7
+    acceptable_pmv = 0.1
 
     plt.title('acceptable_pmv: {}'.format(acceptable_pmv))
     ax1.set_xlabel('steps')
@@ -468,7 +467,7 @@ def test(checkpoint_path, state_size):
     return indoor_temperature, cooling_actuator_value, cost_reward_sum
 
 
-checkpoint_path = './model/sac-ndr.pt'
+checkpoint_path = './model/checkpoint-0.pt'
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
     ret = test(checkpoint_path, state_size)

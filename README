@@ -1,27 +1,6 @@
 
-# downloads
-- [ ] stable-baselines
-# TODOLIST
-- [X] fix action_space DONE
-- [X] figure out the obs NOW
-- [X] combine the same type of obs to a single variable
-- [ ] calculate PMV, maybe use in the future for multi objective reinforcement learning
-- [X] DONE determine heating
-- [X] send observations for thermal comfort reward calculation
-- [?] find how to fetch air velocity for PMV/PPD calculation
-- [X] TODO: upload energyplus and start porting to google colab
-- [X] github issue about premature ending if simulation not annual
-- [X]  change base.py so the simulation is only for 6/21->8/21
-- [X] make it so that if reward==0, then skip the NN computation
-- [X] updated low_obs, high_obs vectors
-- [X] test discrete action_spcae
-- [X] update continuous action_space
-- [?] (base_cont, base_discrete) -> (base, base_cont, base_discrete)
-- [ ] continual learning feature (NOTE: controller that tracks ram)
-- [ ] model save
-- [ ] fix base_cont action space
-- [X] fix run period
-- [X] check warming days same results 
-- [ ] exogeneous states
-- [X] benchmarking -> algo not trained properly
-- [ ] implement PPO, (maybe DDPG?)
+# Folders
+- agent -> MORL formulation without action masking
+- mask-agent -> MORL formulation with action masking
+- base -> just base RL formulation
+

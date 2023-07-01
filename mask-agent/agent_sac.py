@@ -363,6 +363,9 @@ def SAC(n_episodes=200000, max_t=500, print_every=2, load=True, graph=False):
     for i_episode in range(start_episode + 1, n_episodes+1):
     # for i_episode in range(1):
 
+        print('#################')
+        print('EPISODE', i_episode)
+        print('#################')
         state = env.reset()
         state = state.reshape((1,state_size))
         score = 0
