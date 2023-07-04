@@ -9,3 +9,7 @@ agent/logs/
 mask-agent/model/
 mask-agent/output/
 mask-agent/logs/
+
+base/model/
+base/output/
+base/logs/

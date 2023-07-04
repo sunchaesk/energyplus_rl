@@ -143,10 +143,10 @@ class EnergyPlusRunner:
             # "indoor_temp_attic": ("Zone Air Temperature", 'attic_unit1'), # NOTE: air temperature already have? NOTE: attic temp not needed?
 
             # °C, surface area times emissivity
-            "mean_radiant_temperature_living": ("Zone Mean Radiant Temperature", "living_unit1", (22.155, 42.371)),
+            ###"mean_radiant_temperature_living": ("Zone Mean Radiant Temperature", "living_unit1", (22.155, 42.371)),
 
             # %, air relative humidity after the correct step for each zone
-            "relative_humidity_living": ("Zone Air Relative Humidity", "living_unit1", (24.26, 59.652)),
+            ###"relative_humidity_living": ("Zone Air Relative Humidity", "living_unit1", (24.26, 59.652)),
 
             # m/s air velocity
             # "air_velocity_living": ("", ""),
@@ -214,7 +214,7 @@ class EnergyPlusRunner:
             'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment", (290, 435)),
 
             # DONE
-            'outdoor_relative_humidity': ("Site Outdoor Air Relative Humidity", "Environment", (0, 100))
+            ###'outdoor_relative_humidity': ("Site Outdoor Air Relative Humidity", "Environment", (0, 100))
 
             #'test_ldl': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_ldl_1.unit1'),
             # 'diffuse_solar_ldf2': ("", ""),
@@ -289,8 +289,8 @@ class EnergyPlusRunner:
         runtime.callback_progress(self.energyplus_state, report_progress)
 
         # register callback used to collect observations
-        runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_obs)
         runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_meter)
+        runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_obs)
 
         # register callback used to send actions
         runtime.callback_after_predictor_after_hvac_managers(self.energyplus_state, self._send_actions)
@@ -382,6 +382,8 @@ class EnergyPlusRunner:
                 in self.var_handles.items()
             },
         }
+        self.next_obs['elec_cooling'] = self.x.get_meter_handle(state_argument, self.meters['elec_cooling'])
+        self.normalized_next_obs['elec_cooling'] = np.interp(self.next_obs['elec_cooling'], [-889693, 0], [-1, 1])
 
         # normalize each of the observations to range of [-1, 1] using linear interpolation
         temp = dict()
@@ -439,6 +441,12 @@ class EnergyPlusRunner:
         normalized_cost_rate_signal = np.interp(cost_rate_signal, [1, 4], [-1, 1])
         self.normalized_next_obs['cost_rate_signal'] = normalized_cost_rate_signal
         self.next_obs['cost_rate_signal'] = cost_rate_signal
+
+        #self.normalized_next_obs['energy'] = self.me
+
+        print('################')
+        print(self.normalized_next_obs)
+        print('################')
 
         # NOTE: for testing purposes (mainly older trained models)
         # self.normalized_next_obs.pop('outdoor_relative_humidity')
@@ -562,7 +570,8 @@ class EnergyPlusRunner:
         if self.act_queue.empty():
             return
         next_action = self.act_queue.get()[0]
-        next_action = self._rescale(next_action, -1, 1, 15, 30)
+        #next_action = self._rescale(next_action, -1, 1, 15, 30)
+        next_action = np.interp(next_action, [-1, 1], [20, 26])
 
         assert isinstance(next_action, float) or isinstance(next_action, np.float32) # for Box action space, next_action dtype will be float32
         assert next_action >= 15
@@ -670,9 +679,6 @@ class EnergyPlusEnv(gym.Env):
         self.start_date = datetime(2000, env_config['start_date'][0], env_config['start_date'][1])
         self.end_date = datetime(2000, env_config['end_date'][0], env_config['end_date'][1])
 
-        # lmbda
-        self.lmbda = env_config['lmbda']
-
         # acceptable PMV value from 0
         self.acceptable_pmv = 0.7
 
@@ -712,10 +718,10 @@ class EnergyPlusEnv(gym.Env):
         # )
 
         low_obs = np.array(
-            [-1] * 11
+            [-1] * 4
         )
         high_obs = np.array(
-            [1] * 11
+            [1] * 4
         )
         self.observation_space = gym.spaces.Box(
             low=low_obs, high=high_obs, dtype=np.float64
@@ -729,7 +735,7 @@ class EnergyPlusEnv(gym.Env):
         self.normalized_last_next_state = None
 
         # action space: np.linspace(15,30,0.1)
-        self.action_space: Box = Box(np.array([15]), np.array([30]), dtype=np.float32)
+        self.action_space: Box = Box(np.array([20]), np.array([26]), dtype=np.float32)
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.meter_queue: Optional[Queue] = None
@@ -760,177 +766,6 @@ class EnergyPlusEnv(gym.Env):
             p = pickle.load(handle)
             self.PMV_CACHE = p
 
-    def masking_valid_actions(self, scale:tuple =(-1, 1)) -> tuple:
-        '''
-        UNDEPRECATED: change mask range to provide only the upper bound
-
-        for Policy Gradient methods, find valid action values of the indoor air temperature
-        NOTE: valid action value will be
-        NOTE: make sure this function is called after the obs_vec has been updated
-        to the current time step
-
-        has caching feature to self.PMV_CACHE. Cache is statically saved to self.PMV_CACHE_PATH
-
-        NOTE: note that the function returns the scaled values
-        '''
-        #print("HITTTTT")
-        def f(x):
-            tr = self.last_next_state[2]
-            rh = self.last_next_state[3]
-            return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
-
-        # try fetch PMV_CACHE
-        tr = self.last_next_state[2]
-        rh = self.last_next_state[3]
-        cache = self.PMV_CACHE.get((round(tr, 3), round(rh, 3)), False)
-        if cache:
-            # print('using cache!') # NOTE: checked that cache works
-            return cache
-
-        pivot = None
-        xs = (x * 0.5 for x in range(0,31))
-        for x in xs:
-            #print('x', x+15, 'f(x)', f(x + 15))
-            if f(x + 15) < 0:
-                pivot = x + 15
-        if pivot == None:
-            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = scale
-            #return (15, 30)
-            #return scale
-            # return (-1.0, -0.7333333333333334)
-            ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
-            print(ret - 0.1, ret + 0.1)
-            return (ret - 1e-5, ret + 1e-5)
-        else:
-            root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
-            root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
-            root1_scaled = self._rescale(root1, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
-            root2_scaled = self._rescale(root2, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
-            self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (root2_scaled, root1_scaled)
-            return (root2_scaled, root1_scaled) # tuple([lower root, higher root])
-
-    def _masking_valid_actions(self, scale: tuple = (-1, 1)) -> tuple:
-        '''
-        DEPRECATED
-        reason:
-            It is true that if the env gets too cold, it isn't possible to enforece
-            PMV bound, but the PMV bound can be breached, therefore, lower action bound
-            is necessary
-
-        updated masking valid actions
-        @return (lower_bound, upper_bound)
-        lower_bound fixed -> -1 // NOTE: not sure but having a higher lower bound can be better
-        '''
-        def f(x):
-            tr = self.last_next_state[2]
-            rh = self.last_next_state[3]
-            return self._compute_reward_thermal_comfort(x, tr, 0.1, rh) - self.acceptable_pmv
-
-        tr = self.last_next_state[2]
-        rh = self.last_next_state[3]
-        cache = self.PMV_CACHE.get((round(tr, 3), round(rh, 3)), False)
-        if cache:
-            return cache
-
-        pivot = None
-        xs = (x * 0.5 for x in range(0, 31))
-        for x in xs:
-            if f(x + 15) < 0:
-                pivot = x + 15
-
-        # guaranteed for pivot != None
-        root_upper = scipy.optimize.brentq(f, pivot, pivot + 20)
-        root_upper_scaled = self._rescale(root_upper, self.action_space.low[0], self.action_space.high[0], scale[0], scale[1])
-        self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = (scale[0], root_upper_scaled)
-        return (scale[0], root_upper_scaled)
-
-    def masking_conditional_valid_actions(self, scale: tuple = (-1, 1)):
-        '''
-        conditional action masking
-        at each step t, if at current step PMV constraint not satisfied, then apply action mask next timestep
-
-        action bound is: self.action_bound_store
-
-        pseudocode:
-        if action bound storage is not None:
-            return action bound
-            set the action bound store to None
-        if PMV(indoorTemp_t) > acceptablePMV:
-            set an action bound for next timestep (next time the function is called)
-        else
-            set action bound to env.action.low ~ env.action.high
-        '''
-        indoor_temp =self.last_next_state[1]
-
-        def f(x):
-            tr = self.last_next_state[2]
-            rh = self.last_next_state[3]
-            return abs(self._compute_reward_thermal_comfort(x, tr, 0.1, rh)) - self.acceptable_pmv
-
-        # code that's run if prev timestep PMV was not satisfied
-        if self.action_bound_store != None:
-            temp_bound = self.action_bound_store
-            self.action_bound_store = None
-
-            if f(indoor_temp) > 0:
-                tr = self.last_next_state[2]
-                rh = self.last_next_state[3]
-                cache = self.PMV_CACHE.get((round(tr, 3), round(rh,3)), False)
-                if cache:
-                    self.action_bound_store = cache
-                else:
-                    pivot = None
-                    xs = (x * 0.5 for x in range(0, 31))
-                    for x in xs:
-                        if f(x + 15) < 0:
-                            pivot = x + 15
-                    if pivot == None:
-                        ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
-                        self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = tuple([ret - 0.1, ret + 0.1])
-                        self.action_bound_store = tuple([ret - 0.1, ret + 0.1])
-                    else:
-                        root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
-                        root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
-                        root1_scaled = np.interp(root1, [15,30], [-1,1])
-                        root2_scaled = np.interp(root2, [15,30], [-1,1])
-                        self.PMV_CACHE[(round(tr,3), round(rh,3))] = (root2_scaled, root1_scaled)
-                        self.action_bound_store = (root2_scaled, root1_scaled)
-
-            return temp_bound
-
-        # code block below runs if prev timestep PMV was satisfied
-        if f(indoor_temp) > 0:
-            tr = self.last_next_state[2]
-            rh = self.last_next_state[3]
-            cache = self.PMV_CACHE.get((round(tr,3), round(rh, 3)), False)
-            if cache:
-                self.action_bound_store = cache
-                return scale
-            else:
-                pivot = None
-                xs = (x * 0.5 for x in range(0, 31))
-                for x in xs:
-                    if f(x + 15) < 0:
-                        pivot = x + 15
-                if pivot == None:
-                    #self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = scale
-                    ret = scipy.optimize.minimize(f, 20, method="Powell").x[0]
-                    self.PMV_CACHE[(round(tr, 3), round(rh, 3))] = tuple([ret - 0.1, ret + 0.1])
-                    self.action_bound_store = tuple([ret - 0.1, ret + 0.1])
-                    return scale
-                else:
-                    #print('pivot', pivot, 'f(pivot)', f(pivot))
-                    root1 = scipy.optimize.brentq(f, pivot, pivot + 20)
-                    root2 = scipy.optimize.brentq(f, pivot, pivot - 20)
-                    root1_scaled = np.interp(root1, [15, 30], [-1, 1])
-                    root2_scaled = np.interp(root2, [15, 30], [-1, 1])
-                    self.PMV_CACHE[(round(tr,3), round(rh,3))] = (root2_scaled, root1_scaled)
-                    #return (root2_scaled, root1_scaled)
-                    self.action_bound_store = (root2_scaled, root1_scaled)
-                    return scale
-        else:
-            self.action_bound_store = None
-            return scale
 
 
     def retrieve_actuators(self):
@@ -1063,7 +898,7 @@ class EnergyPlusEnv(gym.Env):
             obs_vec[3]
         )
         # compute reward cost
-        reward_cost = self._compute_reward_cost(meter) # kilowatts * cost (cents/kWh)
+        reward_cost = self._compute_reward_cost(meter) # watts * cost (cents/kWh)
 
         reward_watts = self._compute_reward_energy_watts(meter)
 
@@ -1071,20 +906,43 @@ class EnergyPlusEnv(gym.Env):
 
         reward_energy_times_cost_rate = reward_energy * current_cost_rate
 
-        # NOTE: for RL training without action masking
-        scaled_reward_thermal_comfort = np.interp(reward_thermal_comfort, [-2.8, 0], [-1000, 0])
-        scaled_reward_cost = np.interp(reward_cost, [-36, 0], [-1000, 0])
+        # scaled rewards
+        scaled_reward_cost = np.interp(reward_cost, [-36,0], [-10000, 0])
 
-        lambda_scaled_reward_thermal_comfort = self.lmbda * scaled_reward_thermal_comfort
-        # print('#####')
-        # print('lambda_scaled', lambda_scaled_reward_thermal_comfort)
-        # print('lambda', self.lmbda)
-        # print('scaled', scaled_reward_thermal_comfort)
-        # print('#####')
-        #print('scaled thermal', scaled_reward_thermal_comfort, 'scaled cost', scaled_reward_cost)
+        reward = scaled_reward_cost
+        # reward = reward_energy
+        #print('reward', reward)
 
-        reward = scaled_reward_cost + lambda_scaled_reward_thermal_comfort
+        # NOTE: HARD-spiking penalty
+        # PENALTY = None
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     PENALTY = -1e20
+        # else:
+        #     PENALTY = 0
 
+        #NOTE: soft-penalty sigmoid with adjustable penalty param
+        # PENALTY_COEFF = -7000
+        # def penalty_sigmoid(x):
+        #     return PENALTY_COEFF * (1 / (1 + math.exp(-(x-0))))
+        # PENALTY = None
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
+        #     PENALTY = penalty_sigmoid(penalty_factor)
+        #     print('pen', PENALTY)
+        # else:
+        #     PENALTY = 0
+
+        # NOTE: soft-penalty linear
+        # PENALTY = None
+        # PENALTY_COEFF = -22000
+        # def penalty_linear(pmv_diff):
+        #     return PENALTY_COEFF * pmv_diff
+        # if abs(reward_thermal_comfort) > self.acceptable_pmv:
+        #     penalty_factor = abs(reward_thermal_comfort) - self.acceptable_pmv
+        #     PENALTY = penalty_linear(penalty_factor)
+        #     #print('pen', PENALTY, penalty_factor)
+        # else:
+        #     PENALTY = 0
 
         PENALTY = 0
 
@@ -1133,6 +991,7 @@ class EnergyPlusEnv(gym.Env):
                                                                  'day': day,
                                                                  'hour': hour,
                                                                  'minute': minute,
+                                                                 'cost_rate': current_cost_rate,
                                                                  'obs_vec': obs_vec
                                                           }
 
@@ -1164,7 +1023,7 @@ class EnergyPlusEnv(gym.Env):
         clo: set as a constant value of 0.5
         -> clo_relative is pre-computed ->
 
-        @return PMV (+ve)
+        @return PPD
         '''
         def pmv_ppd_optimized(tdb, tr, vr, rh, met, clo, wme):
             pa = rh * 10 * math.exp(16.6536 - 4030.183 / (tdb + 235))
@@ -1291,8 +1150,8 @@ class EnergyPlusEnv(gym.Env):
         v_rel = v_relative(v, 1.4)
         #print('V_REL', v_rel)
         pmv = pmv_ppd_optimized(tdb, tr, 0.1, rh, 1.4, clo_dynamic, 0)
-        # now calc and return
-        return -abs(pmv) # return abs ( -> distance from PMV = 0 ) / negative (to minimize)
+        # now calc and return ppd
+        return pmv
     #return 100.0 - 95.0 * np.exp(-0.03353 * np.power(pmv, 4.0) - 0.2179 * np.power(pmv, 2.0))
 
     @staticmethod
@@ -1396,34 +1255,39 @@ default_args = {'idf': '../in.idf',
                 'pmv_pickle_path': './pmv_cache.pickle'
                 }
 #
-#SCORES:  [-343068118.4928892, -343058929.74458027, -343034573.5644406, -343063839.9638236, -343081534.0729704, -343076762.9154123, -343055059.71841764, -343033258.9391935, -343036122.53581744, -343047720.2466282]
+# -35.37891060322984 -0.006834252050420474 (min, max @ action = 1)
 if __name__ == "__main__":
     env = EnergyPlusEnv(default_args)
     print('action_space:', end='')
     print(env.action_space)
     print("OBS SHAPE:", env.observation_space.shape)
     scores = []
+    costs = []
 
-    comfort = []
-    cost = []
-
-    benchmark_actions = np.arange(15, 30.1, 0.1)
+    #benchmark_actions = np.arange(15, 30.1, 0.1)
     for episode in range(1):
         state = env.reset()
         done = False
         score = 0
+        cost = 0
 
+#cost -2671673.2453695023 action = -1
+#cost -2014981.6767330524 action = 1
         while not done:
-            action = random.uniform(-1, 1)
+            action = 1
             ret = n_state, reward, done, truncated, info = env.step([action])
-            print('reward', reward)
-            #print('cost:', info['cost_reward'], 'energy', info['energy_reward'], 'comfort', info['comfort_reward'])
-            cost.append(info['cost_reward'])
-            comfort.append(info['comfort_reward'])
+            scores.append(info['energy_reward'])
+
+            cost += reward
 
             score += info['energy_reward']
 
-        scores.append(score)
+        print('cost', max(scores), min(scores))
+        # costs_set = set(costs)
+        # print(costs_set)
+        # costs_set.remove(max(costs))
+        #scores.append(score)
+        # print(min(costs), max(costs_set))
 
     # for episode in range(1):
     #     state = env.reset()
@@ -1446,8 +1310,5 @@ if __name__ == "__main__":
 
         # env.pickle_save_pmv_cache()
         # scores.append(score)
+    print('REWARD', score)
     print("TRULY DONE?") # YES, but program doesn't terminate due to threading stuff?
-    print('cost', min(cost), max(cost))
-    print('comfort', min(comfort), max(comfort))
-# cost -35.584267897215526 -0.0
-# comfort 0.0009771836077514854 2.1514497746705716
