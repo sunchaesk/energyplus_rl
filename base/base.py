@@ -297,7 +297,7 @@ class EnergyPlusRunner:
                 for i in range(n):
                     n_future_time = self._add_10_minutes(n_future_time)
                 forecast_value = self.exo_states_cache[n_future_time]
-                del forecast_value['outdoor_relative_humidity']
+                forecast_value.pop('outdoor_relative_humidity', None)
                 future_data.append(forecast_value)
 
             for i in range(len(future_data)):
@@ -436,11 +436,12 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
+        obs_len = 12
         low_obs = np.array(
-            [-40.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [-1e8] * obs_len
         )
         hig_obs = np.array(
-            [40.0, 40.0, 1e5, 30.0, 30.0, 1e8, 1e8]
+            [1e8] * obs_len
         )
         self.observation_space = gym.spaces.Box(
             low=low_obs, high=hig_obs, dtype=np.float32
@@ -488,7 +489,7 @@ class EnergyPlusEnv(gym.Env):
         except Empty:
             obs = self.last_obs
 
-        return np.array(list(obs.values())), {}
+        return np.array(list(obs.values()))
 
     def step(self, action):
         self.timestep += 1
@@ -535,12 +536,14 @@ class EnergyPlusEnv(gym.Env):
         reward_energy = self._compute_reward(obs)
         reward_kilowatts = self._compute_reward_energy_kilowatts(obs)
         reward_cost = self._compute_reward_cost(obs, hour, minute, day_of_week, reward_kilowatts)
+        reward_cost_signal = self._compute_cost_signal(obs, hour, minute, day_of_week)
 
         reward = reward_cost
 
 
         obs_vec = np.array(list(obs.values()))
-        return obs_vec, reward, done, False, {'cooling_actuator_value': sat_spt_value}
+        return obs_vec, reward, done, False, {'cooling_actuator_value': sat_spt_value,
+                                              'cost_signal': reward_cost_signal}
 
     def render(self, mode="human"):
         pass
@@ -556,6 +559,25 @@ class EnergyPlusEnv(gym.Env):
         reward_watt = reward / (10 * 60)
         reward_kilowatt = reward_watt / 1000
         return reward_kilowatt
+
+    @staticmethod
+    def _compute_cost_signal(obs, hour, minute, day_of_week):
+        cost_rate = None
+        if day_of_week in [1, 7]:
+            # weekend pricing
+            if hour in range(0, 7) or hour in range(23, 24 + 1): # plus one is to include 7
+                cost_rate = 2.4
+            elif hour in range(7, 23):
+                cost_rate = 7.4
+        else:
+            if hour in range(0, 7) or hour in range(23, 24 + 1):
+                cost_rate = 2.4
+            elif hour in range(7, 16) or hour in range(21, 23):
+                cost_rate = 10.2
+            elif hour in range(16, 21):
+                cost_rate = 24.0
+        return cost_rate
+
 
     @staticmethod
     def _compute_reward_cost(obs, hour, minute, day_of_week, kilowatt):
