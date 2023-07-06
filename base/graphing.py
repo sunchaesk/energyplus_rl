@@ -6,7 +6,7 @@ import numpy as np
 import json
 
 
-import base_cont as base
+import base as base
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -143,7 +143,7 @@ def plot_horizon():
         plt.legend()
         plt.show()
 
-def plot_file(fname,x,y):
+def plot_file(fname,x,y,title):
     window = 5
     with open(fname, 'r') as data:
         plt.figure(figsize=(30,5))
@@ -159,6 +159,7 @@ def plot_file(fname,x,y):
         # moving_avg2 = np.convolve(scores, np.ones(10)/10, mode='valid')
         # plt.plot(range(10 - 1, len(scores)), moving_avg2, 'g-')
 
+        plt.title(title)
         plt.xlabel(x)
         plt.ylabel(y)
 
@@ -209,12 +210,11 @@ def plot_list(d_list, style='fit'):
 
 if __name__ == "__main__":
     # l = [
-    #     ('./logs/scores-0.txt', 'no forecast'),
-    #     ('./logs/scores-4.txt', '4 steps forecast'),
-    #     ('./logs/scores-3interval.txt', '1 4 7 10 13 16 steps forecast'),
+    #     ('./logs/scores.txt', 'no dr'),
+    #     ('./logs/dr-fail.txt', 'dr'),
     # ]
     # plot_list(l, style='all')
-    plot_file('./logs/sac-scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)')
+    plot_file('./logs/scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)', title='demand response training episodes')
     #plot_penalty()
     #plot_horizon()
     #plot_hidden()

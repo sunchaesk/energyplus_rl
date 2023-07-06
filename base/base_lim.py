@@ -287,7 +287,7 @@ class EnergyPlusRunner:
         # NOTE: self.exo_states_cache is where the cache is saved
         forecast = True
         if forecast:
-            future_steps = [2,5,8,11,14,17]
+            future_steps = [2,4,6,8,10]
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -309,7 +309,6 @@ class EnergyPlusRunner:
                 for key, val in future_data[i].items():
                     self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
                     #self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
-
 
         self.obs_queue.put(self.next_obs)
 
@@ -462,7 +461,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 33
+        obs_len = 12
         low_obs = np.array(
             [-1e8] * obs_len
         )
@@ -564,7 +563,7 @@ class EnergyPlusEnv(gym.Env):
         reward_cost = self._compute_reward_cost(obs, hour, minute, day_of_week, reward_kilowatts)
         reward_cost_signal = self._compute_cost_signal(obs, hour, minute, day_of_week)
 
-        reward = reward_cost
+        reward = reward_energy
 
 
         obs_vec = np.array(list(obs.values()))
@@ -658,16 +657,13 @@ if __name__ == "__main__":
 
         while not done:
             action = env.action_space.sample()
-            action = 60
             ret = n_state, reward, done, truncated, info = env.step(action)
-            score += reward
             # print('cost', reward)
             #print('obs', n_state)
             #print('sat_spt', info['cooling_actuator_value'])
 
             #score += info['energy_reward']
 
-        print('score', score)
         scores.append(score)
 
     # for episode in range(1):

@@ -6,6 +6,7 @@ import numpy as np
 from torch.distributions import Categorical
 import copy
 import math
+import time
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -225,6 +226,9 @@ class PPO_discrete(object):
             self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer'])
             self.critic.load_state_dict(checkpoint['critic_state_dict'])
             self.critic_optimizer.load_state_dict(checkpoint['critic_optimizer'])
+            print('#############################')
+            print('STARTING AT EPISODE', checkpoint['episode'])
+            print('#############################')
             return checkpoint['episode']
         except:
             print('ERROR: no model saved in ./model/checkpoint.pt')
