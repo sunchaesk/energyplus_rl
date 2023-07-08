@@ -209,12 +209,20 @@ def plot_list(d_list, style='fit'):
 
 
 if __name__ == "__main__":
+    print(len(sys.argv))
+    if len(sys.argv) < 2:
+        print('default')
+        plot_file('./logs/scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)', title='demand response training episodes')
+    else:
+        print('custom')
+        f_name = './logs/' + sys.argv[1] + '.txt'
+        plot_file(f_name, x='episode', y='Episode Energy Consumption', title='demand response training file: {}'.format(sys.argv[1]))
+
     # l = [
     #     ('./logs/scores.txt', 'no dr'),
     #     ('./logs/dr-fail.txt', 'dr'),
     # ]
     # plot_list(l, style='all')
-    plot_file('./logs/scores.txt', x='episode', y='Episode Energy Consumption (6,21) ~ (6,28) (J)', title='demand response training episodes')
     #plot_penalty()
     #plot_horizon()
     #plot_hidden()

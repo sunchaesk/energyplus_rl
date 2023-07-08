@@ -60,6 +60,16 @@ We'll also use the following from PyTorch:
 
 """
 
+import base2 as base
+default_args = {'idf': '../in.idf',
+                'epw': '../weather.epw',
+                'csv': True,
+                'output': './output',
+                'timesteps': 1000000.0,
+                'num_workers': 2,
+                'annual': False,# for some reasons if not annual, funky results
+                }
+
 import gymnasium as gym
 import math
 import random
@@ -73,17 +83,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-env = gym.make("CartPole-v1")
-
-# set up matplotlib
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
-
-plt.ion()
-
-# if GPU is to be used
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 ######################################################################
@@ -247,29 +246,6 @@ class DQN(nn.Module):
 # EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay
 # TAU is the update rate of the target network
 # LR is the learning rate of the ``AdamW`` optimizer
-BATCH_SIZE = 128
-GAMMA = 0.99
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 1000
-TAU = 0.005
-LR = 1e-4
-
-# Get number of actions from gym action space
-n_actions = env.action_space.n
-# Get the number of state observations
-state, info = env.reset()
-n_observations = len(state)
-
-policy_net = DQN(n_observations, n_actions).to(device)
-target_net = DQN(n_observations, n_actions).to(device)
-target_net.load_state_dict(policy_net.state_dict())
-
-optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-memory = ReplayMemory(10000)
-
-
-steps_done = 0
 
 
 def select_action(state):
@@ -287,8 +263,6 @@ def select_action(state):
     else:
         return torch.tensor([[env.action_space.sample()]], device=device, dtype=torch.long)
 
-
-episode_durations = []
 
 
 def plot_durations(show_result=False):
@@ -443,75 +417,98 @@ def graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_tempe
 # episodes. Training RL agents can be a noisy process, so restarting training
 # can produce better results if convergence is not observed.
 #
+if __name__ == "__main__":
+    env = base.EnergyPlusEnv(default_args)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-num_episodes = 10000
+    BATCH_SIZE = 128
+    GAMMA = 0.99
+    EPS_START = 0.9
+    EPS_END = 0.05
+    EPS_DECAY = 1000
+    TAU = 0.005
+    LR = 1e-4
 
-# load model
-i_episode = load_model(policy_net=policy_net, target_net=target_net, optimizer=optimizer)
+    # Get number of actions from gym action space
+    n_actions = env.action_space.n
+    # Get the number of state observations
+    state = env.reset()
+    n_observations = len(state)
 
-scores = []
-cost_signals = []
-cooling_setpoints = []
-outdoor_temperatures = []
-indoor_temperatures = []
+    policy_net = DQN(n_observations, n_actions).to(device)
+    target_net = DQN(n_observations, n_actions).to(device)
+    target_net.load_state_dict(policy_net.state_dict())
 
-for i_episode in range(num_episodes):
+    optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
+    memory = ReplayMemory(10000)
 
-    episode_reward = 0
-    # Initialize the environment and get it's state
-    state, info = env.reset()
-    state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-    while True:
-        action = select_action(state)
-        observation, reward, terminated, truncated, info = env.step(action.item())
 
-        cost_signals.append(info['cost_signal'])
-        cooling_setpoints.append(info['cooling_actuator_value'])
-        outdoor_temperatures.append(observation[0])
-        indoor_temperatures.append(observation[1])
-        episode_reward += reward
+    steps_done = 0
+    num_episodes = 10000
 
-        reward = torch.tensor([reward], device=device)
-        done = terminated or truncated
+    # load model
+    i_episode = load_model(policy_net=policy_net, target_net=target_net, optimizer=optimizer)
 
-        if terminated:
-            next_state = None
-        else:
-            next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
+    scores = []
+    cost_signals = []
+    cooling_setpoints = []
+    outdoor_temperatures = []
+    indoor_temperatures = []
 
-        # Store the transition in memory
-        memory.push(state, action, next_state, reward)
+    for i_episode in range(num_episodes):
 
-        # Move to the next state
-        state = next_state
+        episode_reward = 0
+        # Initialize the environment and get it's state
+        state = env.reset()
+        state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        while True:
+            action = select_action(state)
+            observation, reward, terminated, truncated, info = env.step(action.item())
 
-        # Perform one step of the optimization (on the policy network)
-        optimize_model()
+            cost_signals.append(info['cost_signal'])
+            cooling_setpoints.append(info['cooling_actuator_value'])
+            outdoor_temperatures.append(observation[0])
+            indoor_temperatures.append(observation[1])
+            episode_reward += reward
 
-        # Soft update of the target network's weights
-        # θ′ ← τ θ + (1 −τ )θ′
-        target_net_state_dict = target_net.state_dict()
-        policy_net_state_dict = policy_net.state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-        target_net.load_state_dict(target_net_state_dict)
+            reward = torch.tensor([reward], device=device)
+            done = terminated or truncated
 
-        if done:
-            episode_durations.append(t + 1)
-            save_reward(episode_reward)
-            scores.append(episode_reward)
-            graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, i_episode)
-            if i_episode % 5 == 0 and i_episode != 0:
-                save_model(target_net, policy_net, optimizer, i_episode)
-            #plot_durations()
+            if terminated:
+                next_state = None
+            else:
+                next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
 
-            cooling_setpoints = []
-            cost_signals = []
-            indoor_temperatures = []
-            outdoor_temperatures = []
-            break
+            # Store the transition in memory
+            memory.push(state, action, next_state, reward)
 
-print('Complete')
-plot_durations(show_result=True)
-plt.ioff()
-plt.show()
+            # Move to the next state
+            state = next_state
+
+            # Perform one step of the optimization (on the policy network)
+            optimize_model()
+
+            # Soft update of the target network's weights
+            # θ′ ← τ θ + (1 −τ )θ′
+            target_net_state_dict = target_net.state_dict()
+            policy_net_state_dict = policy_net.state_dict()
+            for key in policy_net_state_dict:
+                target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
+            target_net.load_state_dict(target_net_state_dict)
+
+            if done:
+                #episode_durations.append(t + 1)
+                save_reward(episode_reward)
+                scores.append(episode_reward)
+                graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, i_episode)
+                if i_episode % 5 == 0 and i_episode != 0:
+                    save_model(target_net, policy_net, optimizer, i_episode)
+                #plot_durations()
+
+                cooling_setpoints = []
+                cost_signals = []
+                indoor_temperatures = []
+                outdoor_temperatures = []
+                break
+
+    print('Complete')

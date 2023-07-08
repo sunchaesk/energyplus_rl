@@ -30,7 +30,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete, Box
 
-sys.path.insert(0, '/home/ck/Downloads/Eplus/')
+sys.path.insert(0, '/home/ck/Downloads/EnergyPlus-23.1.0-87ed9199d4-Linux-CentOS7.9.2009-x86_64/')
 from pyenergyplus.api import EnergyPlusAPI
 from pyenergyplus.datatransfer import DataExchange
 
