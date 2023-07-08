@@ -287,7 +287,7 @@ class EnergyPlusRunner:
         # NOTE: self.exo_states_cache is where the cache is saved
         forecast = True
         if forecast:
-            future_steps = [2,5,8,11,14,17]
+            future_steps = list(range(2,18))
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -462,7 +462,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 33
+        obs_len = 73
         low_obs = np.array(
             [-1e8] * obs_len
         )

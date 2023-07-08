@@ -155,7 +155,7 @@ def test(checkpoint_path):
                 break
 
     steps_start = 110
-    steps = 410
+    steps = 1110
     size = steps - steps_start
     print('##########################')
     print('EP reward:', episode_reward)
