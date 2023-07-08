@@ -285,7 +285,7 @@ class EnergyPlusRunner:
 
         # deterministic forecast of exogen states
         # NOTE: self.exo_states_cache is where the cache is saved
-        forecast = True
+        forecast = False
         if forecast:
             future_steps = list(range(2,18))
             future_data = []
@@ -462,7 +462,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 73
+        obs_len = 9
         low_obs = np.array(
             [-1e8] * obs_len
         )
