@@ -63,8 +63,8 @@ default_args = {'idf': '../in.idf',
                 }
 
 def graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episode):
-    start = 10
-    end = 310
+    start = 310
+    end = 1010
     x = list(range(end - start))
 
     print(len(x))

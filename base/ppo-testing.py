@@ -257,6 +257,7 @@ def test_max():
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
     test('./model/checkpoint.pt')
+    #test_max()
     # model_scores = []
     # max_scores = []
     # for i in range(40):

@@ -1,514 +1,744 @@
-# -*- coding: utf-8 -*-
-"""
-Reinforcement Learning (DQN) Tutorial
-=====================================
-**Author**: `Adam Paszke <https://github.com/apaszke>`_
-            `Mark Towers <https://github.com/pseudo-rnd-thoughts>`_
-
-
-This tutorial shows how to use PyTorch to train a Deep Q Learning (DQN) agent
-on the CartPole-v1 task from `Gymnasium <https://www.gymnasium.farama.org>`__.
-
-**Task**
-
-The agent has to decide between two actions - moving the cart left or
-right - so that the pole attached to it stays upright. You can find more
-information about the environment and other more challenging environments at
-`Gymnasium's website <https://gymnasium.farama.org/environments/classic_control/cart_pole/>`__.
-
-.. figure:: /_static/img/cartpole.gif
-   :alt: CartPole
-
-   CartPole
-
-As the agent observes the current state of the environment and chooses
-an action, the environment *transitions* to a new state, and also
-returns a reward that indicates the consequences of the action. In this
-task, rewards are +1 for every incremental timestep and the environment
-terminates if the pole falls over too far or the cart moves more than 2.4
-units away from center. This means better performing scenarios will run
-for longer duration, accumulating larger return.
-
-The CartPole task is designed so that the inputs to the agent are 4 real
-values representing the environment state (position, velocity, etc.).
-We take these 4 inputs without any scaling and pass them through a
-small fully-connected network with 2 outputs, one for each action.
-The network is trained to predict the expected value for each action,
-given the input state. The action with the highest expected value is
-then chosen.
-
-
-**Packages**
-
-
-First, let's import needed packages. Firstly, we need
-`gymnasium <https://gymnasium.farama.org/>`__ for the environment,
-installed by using `pip`. This is a fork of the original OpenAI
-Gym project and maintained by the same team since Gym v0.19.
-If you are running this in Google Colab, run:
-
-.. code-block:: bash
-
-   %%bash
-   pip3 install gymnasium[classic_control]
-
-We'll also use the following from PyTorch:
-
--  neural networks (``torch.nn``)
--  optimization (``torch.optim``)
--  automatic differentiation (``torch.autograd``)
-
-"""
 
 import base2 as base
-default_args = {'idf': '../in.idf',
-                'epw': '../weather.epw',
-                'csv': True,
-                'output': './output',
-                'timesteps': 1000000.0,
-                'num_workers': 2,
-                'annual': False,# for some reasons if not annual, funky results
-                }
+
+import math
+import os
+import random
+from collections import deque
+from typing import Deque, Dict, List, Tuple
 
 import gymnasium as gym
-import math
-import random
-import matplotlib
 import matplotlib.pyplot as plt
-from collections import namedtuple, deque
-from itertools import count
-
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
+from IPython.display import clear_output
+from torch.nn.utils import clip_grad_norm_
+
+from segment_tree import MinSegmentTree, SumSegmentTree
+
+class ReplayBuffer:
+    """A simple numpy replay buffer."""
+
+    def __init__(
+        self,
+        obs_dim: int,
+        size: int,
+        batch_size: int = 32,
+        n_step: int = 1,
+        gamma: float = 0.99
+    ):
+        self.obs_buf = np.zeros([size, obs_dim], dtype=np.float32)
+        self.next_obs_buf = np.zeros([size, obs_dim], dtype=np.float32)
+        self.acts_buf = np.zeros([size], dtype=np.float32)
+        self.rews_buf = np.zeros([size], dtype=np.float32)
+        self.done_buf = np.zeros(size, dtype=np.float32)
+        self.max_size, self.batch_size = size, batch_size
+        self.ptr, self.size, = 0, 0
+
+        # for N-step Learning
+        self.n_step_buffer = deque(maxlen=n_step)
+        self.n_step = n_step
+        self.gamma = gamma
+
+    def store(
+        self,
+        obs: np.ndarray,
+        act: np.ndarray,
+        rew: float,
+        next_obs: np.ndarray,
+        done: bool,
+    ) -> Tuple[np.ndarray, np.ndarray, float, np.ndarray, bool]:
+        transition = (obs, act, rew, next_obs, done)
+        self.n_step_buffer.append(transition)
+
+        # single step transition is not ready
+        if len(self.n_step_buffer) < self.n_step:
+            return ()
+
+        # make a n-step transition
+        rew, next_obs, done = self._get_n_step_info(
+            self.n_step_buffer, self.gamma
+        )
+        obs, act = self.n_step_buffer[0][:2]
+
+        self.obs_buf[self.ptr] = obs
+        self.next_obs_buf[self.ptr] = next_obs
+        self.acts_buf[self.ptr] = act
+        self.rews_buf[self.ptr] = rew
+        self.done_buf[self.ptr] = done
+        self.ptr = (self.ptr + 1) % self.max_size
+        self.size = min(self.size + 1, self.max_size)
+
+        return self.n_step_buffer[0]
+
+    def sample_batch(self) -> Dict[str, np.ndarray]:
+        idxs = np.random.choice(self.size, size=self.batch_size, replace=False)
+
+        return dict(
+            obs=self.obs_buf[idxs],
+            next_obs=self.next_obs_buf[idxs],
+            acts=self.acts_buf[idxs],
+            rews=self.rews_buf[idxs],
+            done=self.done_buf[idxs],
+            # for N-step Learning
+            indices=idxs,
+        )
+
+    def sample_batch_from_idxs(
+        self, idxs: np.ndarray
+    ) -> Dict[str, np.ndarray]:
+        # for N-step Learning
+        return dict(
+            obs=self.obs_buf[idxs],
+            next_obs=self.next_obs_buf[idxs],
+            acts=self.acts_buf[idxs],
+            rews=self.rews_buf[idxs],
+            done=self.done_buf[idxs],
+        )
+
+    def _get_n_step_info(
+        self, n_step_buffer: Deque, gamma: float
+    ) -> Tuple[np.int64, np.ndarray, bool]:
+        """Return n step rew, next_obs, and done."""
+        # info of the last transition
+        rew, next_obs, done = n_step_buffer[-1][-3:]
+
+        for transition in reversed(list(n_step_buffer)[:-1]):
+            r, n_o, d = transition[-3:]
+
+            rew = r + gamma * rew * (1 - d)
+            next_obs, done = (n_o, d) if d else (next_obs, done)
+
+        return rew, next_obs, done
+
+    def __len__(self) -> int:
+        return self.size
+
+
+class PrioritizedReplayBuffer(ReplayBuffer):
+    """Prioritized Replay buffer.
+
+    Attributes:
+        max_priority (float): max priority
+        tree_ptr (int): next index of tree
+        alpha (float): alpha parameter for prioritized replay buffer
+        sum_tree (SumSegmentTree): sum tree for prior
+        min_tree (MinSegmentTree): min tree for min prior to get max weight
+
+    """
+
+    def __init__(
+        self,
+        obs_dim: int,
+        size: int,
+        batch_size: int = 32,
+        alpha: float = 0.6,
+        n_step: int = 1,
+        gamma: float = 0.99,
+    ):
+        """Initialization."""
+        assert alpha >= 0
+
+        super(PrioritizedReplayBuffer, self).__init__(
+            obs_dim, size, batch_size, n_step, gamma
+        )
+        self.max_priority, self.tree_ptr = 1.0, 0
+        self.alpha = alpha
+
+        # capacity must be positive and a power of 2.
+        tree_capacity = 1
+        while tree_capacity < self.max_size:
+            tree_capacity *= 2
+
+        self.sum_tree = SumSegmentTree(tree_capacity)
+        self.min_tree = MinSegmentTree(tree_capacity)
+
+    def store(
+        self,
+        obs: np.ndarray,
+        act: int,
+        rew: float,
+        next_obs: np.ndarray,
+        done: bool,
+    ) -> Tuple[np.ndarray, np.ndarray, float, np.ndarray, bool]:
+        """Store experience and priority."""
+        transition = super().store(obs, act, rew, next_obs, done)
+
+        if transition:
+            self.sum_tree[self.tree_ptr] = self.max_priority ** self.alpha
+            self.min_tree[self.tree_ptr] = self.max_priority ** self.alpha
+            self.tree_ptr = (self.tree_ptr + 1) % self.max_size
+
+        return transition
+
+    def sample_batch(self, beta: float = 0.4) -> Dict[str, np.ndarray]:
+        """Sample a batch of experiences."""
+        assert len(self) >= self.batch_size
+        assert beta > 0
+
+        indices = self._sample_proportional()
+
+        obs = self.obs_buf[indices]
+        next_obs = self.next_obs_buf[indices]
+        acts = self.acts_buf[indices]
+        rews = self.rews_buf[indices]
+        done = self.done_buf[indices]
+        weights = np.array([self._calculate_weight(i, beta) for i in indices])
+
+        return dict(
+            obs=obs,
+            next_obs=next_obs,
+            acts=acts,
+            rews=rews,
+            done=done,
+            weights=weights,
+            indices=indices,
+        )
+
+    def update_priorities(self, indices: List[int], priorities: np.ndarray):
+        """Update priorities of sampled transitions."""
+        assert len(indices) == len(priorities)
+
+        for idx, priority in zip(indices, priorities):
+            assert priority > 0
+            assert 0 <= idx < len(self)
+
+            self.sum_tree[idx] = priority ** self.alpha
+            self.min_tree[idx] = priority ** self.alpha
+
+            self.max_priority = max(self.max_priority, priority)
+
+    def _sample_proportional(self) -> List[int]:
+        """Sample indices based on proportions."""
+        indices = []
+        p_total = self.sum_tree.sum(0, len(self) - 1)
+        segment = p_total / self.batch_size
+
+        for i in range(self.batch_size):
+            a = segment * i
+            b = segment * (i + 1)
+            upperbound = random.uniform(a, b)
+            idx = self.sum_tree.retrieve(upperbound)
+            indices.append(idx)
+
+        return indices
+
+    def _calculate_weight(self, idx: int, beta: float):
+        """Calculate the weight of the experience at idx."""
+        # get max weight
+        p_min = self.min_tree.min() / self.sum_tree.sum()
+        max_weight = (p_min * len(self)) ** (-beta)
+
+        # calculate weights
+        p_sample = self.sum_tree[idx] / self.sum_tree.sum()
+        weight = (p_sample * len(self)) ** (-beta)
+        weight = weight / max_weight
+
+        return weight
+
+class NoisyLinear(nn.Module):
+    """Noisy linear module for NoisyNet.
 
 
 
-######################################################################
-# Replay Memory
-# -------------
-#
-# We'll be using experience replay memory for training our DQN. It stores
-# the transitions that the agent observes, allowing us to reuse this data
-# later. By sampling from it randomly, the transitions that build up a
-# batch are decorrelated. It has been shown that this greatly stabilizes
-# and improves the DQN training procedure.
-#
-# For this, we're going to need two classes:
-#
-# -  ``Transition`` - a named tuple representing a single transition in
-#    our environment. It essentially maps (state, action) pairs
-#    to their (next_state, reward) result, with the state being the
-#    screen difference image as described later on.
-# -  ``ReplayMemory`` - a cyclic buffer of bounded size that holds the
-#    transitions observed recently. It also implements a ``.sample()``
-#    method for selecting a random batch of transitions for training.
-#
+    Attributes:
+        in_features (int): input size of linear module
+        out_features (int): output size of linear module
+        std_init (float): initial std value
+        weight_mu (nn.Parameter): mean value weight parameter
+        weight_sigma (nn.Parameter): std value weight parameter
+        bias_mu (nn.Parameter): mean value bias parameter
+        bias_sigma (nn.Parameter): std value bias parameter
 
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
+    """
 
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        std_init: float = 0.5,
+    ):
+        """Initialization."""
+        super(NoisyLinear, self).__init__()
 
-class ReplayMemory(object):
+        self.in_features = in_features
+        self.out_features = out_features
+        self.std_init = std_init
 
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
+        self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.weight_sigma = nn.Parameter(
+            torch.Tensor(out_features, in_features)
+        )
+        self.register_buffer(
+            "weight_epsilon", torch.Tensor(out_features, in_features)
+        )
 
-    def push(self, *args):
-        """Save a transition"""
-        self.memory.append(Transition(*args))
+        self.bias_mu = nn.Parameter(torch.Tensor(out_features))
+        self.bias_sigma = nn.Parameter(torch.Tensor(out_features))
+        self.register_buffer("bias_epsilon", torch.Tensor(out_features))
 
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        self.reset_parameters()
+        self.reset_noise()
 
-    def __len__(self):
-        return len(self.memory)
+    def reset_parameters(self):
+        """Reset trainable network parameters (factorized gaussian noise)."""
+        mu_range = 1 / math.sqrt(self.in_features)
+        self.weight_mu.data.uniform_(-mu_range, mu_range)
+        self.weight_sigma.data.fill_(
+            self.std_init / math.sqrt(self.in_features)
+        )
+        self.bias_mu.data.uniform_(-mu_range, mu_range)
+        self.bias_sigma.data.fill_(
+            self.std_init / math.sqrt(self.out_features)
+        )
 
+    def reset_noise(self):
+        """Make new noise."""
+        epsilon_in = self.scale_noise(self.in_features)
+        epsilon_out = self.scale_noise(self.out_features)
 
-######################################################################
-# Now, let's define our model. But first, let's quickly recap what a DQN is.
-#
-# DQN algorithm
-# -------------
-#
-# Our environment is deterministic, so all equations presented here are
-# also formulated deterministically for the sake of simplicity. In the
-# reinforcement learning literature, they would also contain expectations
-# over stochastic transitions in the environment.
-#
-# Our aim will be to train a policy that tries to maximize the discounted,
-# cumulative reward
-# :math:`R_{t_0} = \sum_{t=t_0}^{\infty} \gamma^{t - t_0} r_t`, where
-# :math:`R_{t_0}` is also known as the *return*. The discount,
-# :math:`\gamma`, should be a constant between :math:`0` and :math:`1`
-# that ensures the sum converges. A lower :math:`\gamma` makes
-# rewards from the uncertain far future less important for our agent
-# than the ones in the near future that it can be fairly confident
-# about. It also encourages agents to collect reward closer in time
-# than equivalent rewards that are temporally far away in the future.
-#
-# The main idea behind Q-learning is that if we had a function
-# :math:`Q^*: State \times Action \rightarrow \mathbb{R}`, that could tell
-# us what our return would be, if we were to take an action in a given
-# state, then we could easily construct a policy that maximizes our
-# rewards:
-#
-# .. math:: \pi^*(s) = \arg\!\max_a \ Q^*(s, a)
-#
-# However, we don't know everything about the world, so we don't have
-# access to :math:`Q^*`. But, since neural networks are universal function
-# approximators, we can simply create one and train it to resemble
-# :math:`Q^*`.
-#
-# For our training update rule, we'll use a fact that every :math:`Q`
-# function for some policy obeys the Bellman equation:
-#
-# .. math:: Q^{\pi}(s, a) = r + \gamma Q^{\pi}(s', \pi(s'))
-#
-# The difference between the two sides of the equality is known as the
-# temporal difference error, :math:`\delta`:
-#
-# .. math:: \delta = Q(s, a) - (r + \gamma \max_a' Q(s', a))
-#
-# To minimize this error, we will use the `Huber
-# loss <https://en.wikipedia.org/wiki/Huber_loss>`__. The Huber loss acts
-# like the mean squared error when the error is small, but like the mean
-# absolute error when the error is large - this makes it more robust to
-# outliers when the estimates of :math:`Q` are very noisy. We calculate
-# this over a batch of transitions, :math:`B`, sampled from the replay
-# memory:
-#
-# .. math::
-#
-#    \mathcal{L} = \frac{1}{|B|}\sum_{(s, a, s', r) \ \in \ B} \mathcal{L}(\delta)
-#
-# .. math::
-#
-#    \text{where} \quad \mathcal{L}(\delta) = \begin{cases}
-#      \frac{1}{2}{\delta^2}  & \text{for } |\delta| \le 1, \\
-#      |\delta| - \frac{1}{2} & \text{otherwise.}
-#    \end{cases}
-#
-# Q-network
-# ^^^^^^^^^
-#
-# Our model will be a feed forward  neural network that takes in the
-# difference between the current and previous screen patches. It has two
-# outputs, representing :math:`Q(s, \mathrm{left})` and
-# :math:`Q(s, \mathrm{right})` (where :math:`s` is the input to the
-# network). In effect, the network is trying to predict the *expected return* of
-# taking each action given the current input.
-#
+        # outer product
+        self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
+        self.bias_epsilon.copy_(epsilon_out)
 
-class DQN(nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward method implementation.
 
-    def __init__(self, n_observations, n_actions):
-        super(DQN, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 128)
-        self.layer2 = nn.Linear(128, 128)
-        self.layer3 = nn.Linear(128, n_actions)
+        We don't use separate statements on train / eval mode.
+        It doesn't show remarkable difference of performance.
+        """
+        return F.linear(
+            x,
+            self.weight_mu + self.weight_sigma * self.weight_epsilon,
+            self.bias_mu + self.bias_sigma * self.bias_epsilon,
+        )
 
-    # Called with either one element to determine next action, or a batch
-    # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        return self.layer3(x)
+    @staticmethod
+    def scale_noise(size: int) -> torch.Tensor:
+        """Set scale to make noise (factorized gaussian noise)."""
+        x = torch.randn(size)
 
+        return x.sign().mul(x.abs().sqrt())
 
-######################################################################
-# Training
-# --------
-#
-# Hyperparameters and utilities
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# This cell instantiates our model and its optimizer, and defines some
-# utilities:
-#
-# -  ``select_action`` - will select an action accordingly to an epsilon
-#    greedy policy. Simply put, we'll sometimes use our model for choosing
-#    the action, and sometimes we'll just sample one uniformly. The
-#    probability of choosing a random action will start at ``EPS_START``
-#    and will decay exponentially towards ``EPS_END``. ``EPS_DECAY``
-#    controls the rate of the decay.
-# -  ``plot_durations`` - a helper for plotting the duration of episodes,
-#    along with an average over the last 100 episodes (the measure used in
-#    the official evaluations). The plot will be underneath the cell
-#    containing the main training loop, and will update after every
-#    episode.
-#
+class Network(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        atom_size: int,
+        support: torch.Tensor
+    ):
+        """Initialization."""
+        super(Network, self).__init__()
 
-# BATCH_SIZE is the number of transitions sampled from the replay buffer
-# GAMMA is the discount factor as mentioned in the previous section
-# EPS_START is the starting value of epsilon
-# EPS_END is the final value of epsilon
-# EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay
-# TAU is the update rate of the target network
-# LR is the learning rate of the ``AdamW`` optimizer
+        self.support = support
+        self.out_dim = out_dim
+        self.atom_size = atom_size
 
+        # set common feature layer
+        self.feature_layer = nn.Sequential(
+            nn.Linear(in_dim, 128),
+            nn.ReLU(),
+        )
 
-def select_action(state):
-    global steps_done
-    sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(-1. * steps_done / EPS_DECAY)
-    steps_done += 1
-    if sample > eps_threshold:
-        with torch.no_grad():
-            # t.max(1) will return the largest column value of each row.
-            # second column on max result is index of where max element was
-            # found, so we pick action with the larger expected reward.
-            return policy_net(state).max(1)[1].view(1, 1)
-    else:
-        return torch.tensor([[env.action_space.sample()]], device=device, dtype=torch.long)
+        # set advantage layer
+        self.advantage_hidden_layer = NoisyLinear(128, 128)
+        self.advantage_layer = NoisyLinear(128, out_dim * atom_size)
 
+        # set value layer
+        self.value_hidden_layer = NoisyLinear(128, 128)
+        self.value_layer = NoisyLinear(128, atom_size)
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward method implementation."""
+        dist = self.dist(x)
+        q = torch.sum(dist * self.support, dim=2)
 
-def plot_durations(show_result=False):
-    plt.figure(1)
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    if show_result:
-        plt.title('Result')
-    else:
-        plt.clf()
-        plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
-    # Take 100 episode averages and plot them too
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
+        return q
 
-    plt.pause(0.001)  # pause a bit so that plots are updated
-    if is_ipython:
-        if not show_result:
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-        else:
-            display.display(plt.gcf())
+    def dist(self, x: torch.Tensor) -> torch.Tensor:
+        """Get distribution for atoms."""
+        feature = self.feature_layer(x)
+        adv_hid = F.relu(self.advantage_hidden_layer(feature))
+        val_hid = F.relu(self.value_hidden_layer(feature))
 
+        advantage = self.advantage_layer(adv_hid).view(
+            -1, self.out_dim, self.atom_size
+        )
+        value = self.value_layer(val_hid).view(-1, 1, self.atom_size)
+        q_atoms = value + advantage - advantage.mean(dim=1, keepdim=True)
 
-######################################################################
-# Training loop
-# ^^^^^^^^^^^^^
-#
-# Finally, the code for training our model.
-#
-# Here, you can find an ``optimize_model`` function that performs a
-# single step of the optimization. It first samples a batch, concatenates
-# all the tensors into a single one, computes :math:`Q(s_t, a_t)` and
-# :math:`V(s_{t+1}) = \max_a Q(s_{t+1}, a)`, and combines them into our
-# loss. By definition we set :math:`V(s) = 0` if :math:`s` is a terminal
-# state. We also use a target network to compute :math:`V(s_{t+1})` for
-# added stability. The target network is updated at every step with a
-# `soft update <https://arxiv.org/pdf/1509.02971.pdf>`__ controlled by
-# the hyperparameter ``TAU``, which was previously defined.
-#
+        dist = F.softmax(q_atoms, dim=-1)
+        dist = dist.clamp(min=1e-3)  # for avoiding nans
 
-def optimize_model():
-    if len(memory) < BATCH_SIZE:
-        return
-    transitions = memory.sample(BATCH_SIZE)
-    # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-    # detailed explanation). This converts batch-array of Transitions
-    # to Transition of batch-arrays.
-    batch = Transition(*zip(*transitions))
+        return dist
 
-    # Compute a mask of non-final states and concatenate the batch elements
-    # (a final state would've been the one after which simulation ended)
-    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)), device=device, dtype=torch.bool)
-    non_final_next_states = torch.cat([s for s in batch.next_state
-                                                if s is not None])
-    state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
+    def reset_noise(self):
+        """Reset all noisy layers."""
+        self.advantage_hidden_layer.reset_noise()
+        self.advantage_layer.reset_noise()
+        self.value_hidden_layer.reset_noise()
+        self.value_layer.reset_noise()
 
-    # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
-    # columns of actions taken. These are the actions which would've been taken
-    # for each batch state according to policy_net
-    state_action_values = policy_net(state_batch).gather(1, action_batch)
+class DQNAgent:
+    """DQN Agent interacting with environment.
 
-    # Compute V(s_{t+1}) for all next states.
-    # Expected values of actions for non_final_next_states are computed based
-    # on the "older" target_net; selecting their best reward with max(1)[0].
-    # This is merged based on the mask, such that we'll have either the expected
-    # state value or 0 in case the state was final.
-    next_state_values = torch.zeros(BATCH_SIZE, device=device)
-    with torch.no_grad():
-        next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0]
-    # Compute the expected Q values
-    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+    Attribute:
+        env (gym.Env): openAI Gym environment
+        memory (PrioritizedReplayBuffer): replay memory to store transitions
+        batch_size (int): batch size for sampling
+        target_update (int): period for target model's hard update
+        gamma (float): discount factor
+        dqn (Network): model to train and select actions
+        dqn_target (Network): target model to update
+        optimizer (torch.optim): optimizer for training dqn
+        transition (list): transition information including
+                           state, action, reward, next_state, done
+        v_min (float): min value of support
+        v_max (float): max value of support
+        atom_size (int): the unit number of support
+        support (torch.Tensor): support for categorical dqn
+        use_n_step (bool): whether to use n_step memory
+        n_step (int): step number to calculate n-step td error
+        memory_n (ReplayBuffer): n-step replay buffer
+    """
 
-    # Compute Huber loss
-    criterion = nn.SmoothL1Loss()
-    loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+    def __init__(
+        self,
+        env: gym.Env,
+        memory_size: int,
+        batch_size: int,
+        target_update: int,
+        seed: int,
+        gamma: float = 0.99,
+        # PER parameters
+        alpha: float = 0.2,
+        beta: float = 0.6,
+        prior_eps: float = 1e-6,
+        # Categorical DQN parameters
+        v_min: float = 0.0,
+        v_max: float = 200.0,
+        atom_size: int = 51,
+        # N-step Learning
+        n_step: int = 3,
+    ):
+        """Initialization.
 
-    # Optimize the model
-    optimizer.zero_grad()
-    loss.backward()
-    # In-place gradient clipping
-    torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
-    optimizer.step()
+        Args:
+            env (gym.Env): openAI Gym environment
+            memory_size (int): length of memory
+            batch_size (int): batch size for sampling
+            target_update (int): period for target model's hard update
+            lr (float): learning rate
+            gamma (float): discount factor
+            alpha (float): determines how much prioritization is used
+            beta (float): determines how much importance sampling is used
+            prior_eps (float): guarantees every transition can be sampled
+            v_min (float): min value of support
+            v_max (float): max value of support
+            atom_size (int): the unit number of support
+            n_step (int): step number to calculate n-step td error
+        """
+        obs_dim = env.observation_space.shape[0]
+        action_dim = env.action_space.n
 
+        self.env = env
+        self.batch_size = batch_size
+        self.target_update = target_update
+        self.seed = seed
+        self.gamma = gamma
+        # NoisyNet: All attributes related to epsilon are removed
 
-def save_model(target_net, policy_net, optimizer, episode):
-    print('######')
-    print('Saving model with {} episodes trained'.format(episode))
-    print('######')
-    torch.save({
-        'episode': episode,
-        'target_net': target_net.state_dict(),
-        'policy_net': policy_net.state_dict(),
-        'optimizer': optimizer.state_dict(),
-    }, './model/dqn-checkpoint.pt')
+        # device: cpu / gpu
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        print(self.device)
 
-def load_model(target_net, policy_net, optimizer):
-    try:
-        checkpoint = torch.load('./model/dqn-checkpoint.pt')
-        target_net.load_state_dict(checkpoint['target_net'])
-        policy_net.load_state_dict(checkpoint['target_net'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        return checkpoint['episode']
-    except:
-        print('ERROR: no saved .pt model. Starting from scratch...')
-        return 0
+        # PER
+        # memory for 1-step Learning
+        self.beta = beta
+        self.prior_eps = prior_eps
+        self.memory = PrioritizedReplayBuffer(
+            obs_dim, memory_size, batch_size, alpha=alpha
+        )
 
+        # memory for N-step Learning
+        self.use_n_step = True if n_step > 1 else False
+        if self.use_n_step:
+            self.n_step = n_step
+            self.memory_n = ReplayBuffer(
+                obs_dim, memory_size, batch_size, n_step=n_step, gamma=gamma
+            )
 
-def save_reward(episode_reward):
-    f_name = './logs/dqn-scores.txt'
-    with open(f_name, 'a') as handle:
-        handle.write(str(episode_reward) + '\n')
+        # Categorical DQN parameters
+        self.v_min = v_min
+        self.v_max = v_max
+        self.atom_size = atom_size
+        self.support = torch.linspace(
+            self.v_min, self.v_max, self.atom_size
+        ).to(self.device)
 
-def graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episode):
-    start = 10
-    end = 310
-    x = list(range(end - start))
+        # networks: dqn, dqn_target
+        self.dqn = Network(
+            obs_dim, action_dim, self.atom_size, self.support
+        ).to(self.device)
+        self.dqn_target = Network(
+            obs_dim, action_dim, self.atom_size, self.support
+        ).to(self.device)
+        self.dqn_target.load_state_dict(self.dqn.state_dict())
+        self.dqn_target.eval()
 
-    print(len(x))
-    print(len(cooling_setpoints[start:end]))
+        # optimizer
+        self.optimizer = optim.Adam(self.dqn.parameters())
 
-    fig, ax1 = plt.subplots()
-    ax1.set_title('10 - 310 steps of training {} episodes'.format(episode))
-    ax1.scatter(x, cooling_setpoints[start:end], color='red')
-    ax1.plot(x, outdoor_temperatures[start:end], linestyle='--', color='green')
-    ax1.plot(x, indoor_temperatures[start:end], linestyle='--', color='magenta')
+        # transition to store in memory
+        self.transition = list()
 
-    ax2 = ax1.twinx()
-    ax2.plot(x, cost_signals[start:end])
-    fig.tight_layout()
-    plt.savefig('./logs/dqn-curr.png')
+        # mode: train / test
+        self.is_test = False
 
-######################################################################
-#
-# Below, you can find the main training loop. At the beginning we reset
-# the environment and obtain the initial ``state`` Tensor. Then, we sample
-# an action, execute it, observe the next state and the reward (always
-# 1), and optimize our model once. When the episode ends (our model
-# fails), we restart the loop.
-#
-# Below, `num_episodes` is set to 600 if a GPU is available, otherwise 50
-# episodes are scheduled so training does not take too long. However, 50
-# episodes is insufficient for to observe good performance on CartPole.
-# You should see the model constantly achieve 500 steps within 600 training
-# episodes. Training RL agents can be a noisy process, so restarting training
-# can produce better results if convergence is not observed.
-#
-if __name__ == "__main__":
-    env = base.EnergyPlusEnv(default_args)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def select_action(self, state: np.ndarray) -> np.ndarray:
+        """Select an action from the input state."""
+        # NoisyNet: no epsilon greedy action selection
+        selected_action = self.dqn(
+            torch.FloatTensor(state).to(self.device)
+        ).argmax()
+        selected_action = selected_action.detach().cpu().numpy()
 
-    BATCH_SIZE = 128
-    GAMMA = 0.99
-    EPS_START = 0.9
-    EPS_END = 0.05
-    EPS_DECAY = 1000
-    TAU = 0.005
-    LR = 1e-4
+        if not self.is_test:
+            self.transition = [state, selected_action]
 
-    # Get number of actions from gym action space
-    n_actions = env.action_space.n
-    # Get the number of state observations
-    state = env.reset()
-    n_observations = len(state)
+        return selected_action
 
-    policy_net = DQN(n_observations, n_actions).to(device)
-    target_net = DQN(n_observations, n_actions).to(device)
-    target_net.load_state_dict(policy_net.state_dict())
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, np.float64, bool]:
+        """Take an action and return the response of the env."""
+        next_state, reward, terminated, truncated, _ = self.env.step(action)
+        done = terminated or truncated
 
-    optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-    memory = ReplayMemory(10000)
+        if not self.is_test:
+            self.transition += [reward, next_state, done]
 
-
-    steps_done = 0
-    num_episodes = 10000
-
-    # load model
-    i_episode = load_model(policy_net=policy_net, target_net=target_net, optimizer=optimizer)
-
-    scores = []
-    cost_signals = []
-    cooling_setpoints = []
-    outdoor_temperatures = []
-    indoor_temperatures = []
-
-    for i_episode in range(num_episodes):
-
-        episode_reward = 0
-        # Initialize the environment and get it's state
-        state = env.reset()
-        state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-        while True:
-            action = select_action(state)
-            observation, reward, terminated, truncated, info = env.step(action.item())
-
-            cost_signals.append(info['cost_signal'])
-            cooling_setpoints.append(info['cooling_actuator_value'])
-            outdoor_temperatures.append(observation[0])
-            indoor_temperatures.append(observation[1])
-            episode_reward += reward
-
-            reward = torch.tensor([reward], device=device)
-            done = terminated or truncated
-
-            if terminated:
-                next_state = None
+            # N-step transition
+            if self.use_n_step:
+                one_step_transition = self.memory_n.store(*self.transition)
+            # 1-step transition
             else:
-                next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
+                one_step_transition = self.transition
 
-            # Store the transition in memory
-            memory.push(state, action, next_state, reward)
+            # add a single step transition
+            if one_step_transition:
+                self.memory.store(*one_step_transition)
 
-            # Move to the next state
+        return next_state, reward, done
+
+    def update_model(self) -> torch.Tensor:
+        """Update the model by gradient descent."""
+        # PER needs beta to calculate weights
+        samples = self.memory.sample_batch(self.beta)
+        weights = torch.FloatTensor(
+            samples["weights"].reshape(-1, 1)
+        ).to(self.device)
+        indices = samples["indices"]
+
+        # 1-step Learning loss
+        elementwise_loss = self._compute_dqn_loss(samples, self.gamma)
+
+        # PER: importance sampling before average
+        loss = torch.mean(elementwise_loss * weights)
+
+        # N-step Learning loss
+        # we are gonna combine 1-step loss and n-step loss so as to
+        # prevent high-variance. The original rainbow employs n-step loss only.
+        if self.use_n_step:
+            gamma = self.gamma ** self.n_step
+            samples = self.memory_n.sample_batch_from_idxs(indices)
+            elementwise_loss_n_loss = self._compute_dqn_loss(samples, gamma)
+            elementwise_loss += elementwise_loss_n_loss
+
+            # PER: importance sampling before average
+            loss = torch.mean(elementwise_loss * weights)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        clip_grad_norm_(self.dqn.parameters(), 10.0)
+        self.optimizer.step()
+
+        # PER: update priorities
+        loss_for_prior = elementwise_loss.detach().cpu().numpy()
+        new_priorities = loss_for_prior + self.prior_eps
+        self.memory.update_priorities(indices, new_priorities)
+
+        # NoisyNet: reset noise
+        self.dqn.reset_noise()
+        self.dqn_target.reset_noise()
+
+        return loss.item()
+
+    def train(self, num_frames: int, plotting_interval: int = 200):
+        """Train the agent."""
+        self.is_test = False
+
+        state, _ = self.env.reset(seed=self.seed)
+        update_cnt = 0
+        losses = []
+        scores = []
+        score = 0
+
+        for frame_idx in range(1, num_frames + 1):
+            action = self.select_action(state)
+            next_state, reward, done = self.step(action)
+
             state = next_state
+            score += reward
 
-            # Perform one step of the optimization (on the policy network)
-            optimize_model()
+            # NoisyNet: removed decrease of epsilon
 
-            # Soft update of the target network's weights
-            # θ′ ← τ θ + (1 −τ )θ′
-            target_net_state_dict = target_net.state_dict()
-            policy_net_state_dict = policy_net.state_dict()
-            for key in policy_net_state_dict:
-                target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-            target_net.load_state_dict(target_net_state_dict)
+            # PER: increase beta
+            fraction = min(frame_idx / num_frames, 1.0)
+            self.beta = self.beta + fraction * (1.0 - self.beta)
 
+            # if episode ends
             if done:
-                #episode_durations.append(t + 1)
-                save_reward(episode_reward)
-                scores.append(episode_reward)
-                graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, i_episode)
-                if i_episode % 5 == 0 and i_episode != 0:
-                    save_model(target_net, policy_net, optimizer, i_episode)
-                #plot_durations()
+                state, _ = self.env.reset(seed=self.seed)
+                scores.append(score)
+                score = 0
 
-                cooling_setpoints = []
-                cost_signals = []
-                indoor_temperatures = []
-                outdoor_temperatures = []
-                break
+            # if training is ready
+            if len(self.memory) >= self.batch_size:
+                loss = self.update_model()
+                losses.append(loss)
+                update_cnt += 1
 
-    print('Complete')
+                # if hard update is needed
+                if update_cnt % self.target_update == 0:
+                    self._target_hard_update()
+
+            # plotting
+            if frame_idx % plotting_interval == 0:
+                self._plot(frame_idx, scores, losses)
+
+        self.env.close()
+
+    def test(self, video_folder: str) -> None:
+        """Test the agent."""
+        self.is_test = True
+
+        # for recording a video
+        naive_env = self.env
+        self.env = gym.wrappers.RecordVideo(self.env, video_folder=video_folder)
+
+        state, _ = self.env.reset(seed=self.seed)
+        done = False
+        score = 0
+
+        while not done:
+            action = self.select_action(state)
+            next_state, reward, done = self.step(action)
+
+            state = next_state
+            score += reward
+
+        print("score: ", score)
+        self.env.close()
+
+        # reset
+        self.env = naive_env
+
+    def _compute_dqn_loss(self, samples: Dict[str, np.ndarray], gamma: float) -> torch.Tensor:
+        """Return categorical dqn loss."""
+        device = self.device  # for shortening the following lines
+        state = torch.FloatTensor(samples["obs"]).to(device)
+        next_state = torch.FloatTensor(samples["next_obs"]).to(device)
+        action = torch.LongTensor(samples["acts"]).to(device)
+        reward = torch.FloatTensor(samples["rews"].reshape(-1, 1)).to(device)
+        done = torch.FloatTensor(samples["done"].reshape(-1, 1)).to(device)
+
+        # Categorical DQN algorithm
+        delta_z = float(self.v_max - self.v_min) / (self.atom_size - 1)
+
+        with torch.no_grad():
+            # Double DQN
+            next_action = self.dqn(next_state).argmax(1)
+            next_dist = self.dqn_target.dist(next_state)
+            next_dist = next_dist[range(self.batch_size), next_action]
+
+            t_z = reward + (1 - done) * gamma * self.support
+            t_z = t_z.clamp(min=self.v_min, max=self.v_max)
+            b = (t_z - self.v_min) / delta_z
+            l = b.floor().long()
+            u = b.ceil().long()
+
+            offset = (
+                torch.linspace(
+                    0, (self.batch_size - 1) * self.atom_size, self.batch_size
+                ).long()
+                .unsqueeze(1)
+                .expand(self.batch_size, self.atom_size)
+                .to(self.device)
+            )
+
+            proj_dist = torch.zeros(next_dist.size(), device=self.device)
+            proj_dist.view(-1).index_add_(
+                0, (l + offset).view(-1), (next_dist * (u.float() - b)).view(-1)
+            )
+            proj_dist.view(-1).index_add_(
+                0, (u + offset).view(-1), (next_dist * (b - l.float())).view(-1)
+            )
+
+        dist = self.dqn.dist(state)
+        log_p = torch.log(dist[range(self.batch_size), action])
+        elementwise_loss = -(proj_dist * log_p).sum(1)
+
+        return elementwise_loss
+
+    def _target_hard_update(self):
+        """Hard update: target <- local."""
+        self.dqn_target.load_state_dict(self.dqn.state_dict())
+
+    def _plot(
+        self,
+        frame_idx: int,
+        scores: List[float],
+        losses: List[float],
+    ):
+        """Plot the training progresses."""
+        clear_output(True)
+        plt.figure(figsize=(20, 5))
+        plt.subplot(131)
+        plt.title('frame %s. score: %s' % (frame_idx, np.mean(scores[-10:])))
+        plt.plot(scores)
+        plt.subplot(132)
+        plt.title('loss')
+        plt.plot(losses)
+        plt.show()
+
+
+if __name__ == "__main__":
+    env = gym.make("CartPole-v1", max_episode_steps=200, render_mode="rgb_array")
+    # parameters
+    num_frames = 10000
+    memory_size = 10000
+    batch_size = 128
+    target_update = 100
+
+    seed = 777
+
+    def seed_torch(seed):
+        torch.manual_seed(seed)
+        if torch.backends.cudnn.enabled:
+            torch.cuda.manual_seed(seed)
+            torch.backends.cudnn.benchmark = False
+            torch.backends.cudnn.deterministic = True
+
+            np.random.seed(seed)
+            random.seed(seed)
+            seed_torch(seed)
+
+    # train
+    agent = DQNAgent(env, memory_size, batch_size, target_update, seed)
+
+    agent.train(num_frames)

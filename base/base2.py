@@ -285,9 +285,9 @@ class EnergyPlusRunner:
 
         # deterministic forecast of exogen states
         # NOTE: self.exo_states_cache is where the cache is saved
-        forecast = False
+        forecast = True
         if forecast:
-            future_steps = list(range(2,18))
+            future_steps = [2,5,8,11,14]
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)

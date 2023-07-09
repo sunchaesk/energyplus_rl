@@ -21,7 +21,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete, Box
 
-#sys.path.insert(0, '/home/ck/Downloads/EnergyPlus-23.1.0-87ed9199d4-Linux-CentOS7.9.2009-x86_64/')
+sys.path.insert(0, '/home/ck/Downloads/Eplus/')
 from pyenergyplus.api import EnergyPlusAPI
 from pyenergyplus.datatransfer import DataExchange
 
@@ -283,9 +283,10 @@ class EnergyPlusRunner:
             elif hour in range(16, 21):
                 self.next_obs['cost_rate'] = 24.0
 
+
         # deterministic forecast of exogen states
         # NOTE: self.exo_states_cache is where the cache is saved
-        forecast = True
+        forecast = False
         if forecast:
             future_steps = [2,4,6,8,10]
             future_data = []
@@ -480,6 +481,25 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
 
+        self.acceptable_indoor_temp_upper = 24
+        self.acceptable_indoor_temp_lower = 20
+
+    def check_mask_conditional() -> bool:
+        '''
+        1. conditionally, if indoor temp is less than acceptable then return True
+        @return: True:
+        -> True return refers to generate a MaskedCategorical mask to choose actions
+        between acceptable_upper and acceptable_lower
+        '''
+        acceptable_indoor_upper = self.acceptable_indoor_temp_upper
+        acceptable_indoor_lower = self.acceptable_indoor_temp_lower
+        indoor_temp = self.last_obs['indoor_temp_living']
+
+        if indoor_temp > acceptable_indoor_upper or indoor_temp < acceptable_indoor_lower:
+            return True, acceptable_indoor_upper, acceptable_indoor_lower
+        else:
+            return False, acceptable_indoor_upper, acceptable_indoor_lower
+
     def reset(
         self, *,
         seed: Optional[int] = None,
@@ -656,6 +676,7 @@ if __name__ == "__main__":
         score = 0
 
         while not done:
+            mask = env.check_mask_conditional()
             action = env.action_space.sample()
             ret = n_state, reward, done, truncated, info = env.step(action)
             # print('cost', reward)
