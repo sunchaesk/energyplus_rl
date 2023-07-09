@@ -1,5 +1,6 @@
 
 import base2 as base
+import sys
 
 import math
 import os
@@ -26,9 +27,9 @@ class ReplayBuffer:
         self,
         obs_dim: int,
         size: int,
-        batch_size: int = 32,
+        batch_size: int = 512,
         n_step: int = 1,
-        gamma: float = 0.99
+        gamma: float = 0.95
     ):
         self.obs_buf = np.zeros([size, obs_dim], dtype=np.float32)
         self.next_obs_buf = np.zeros([size, obs_dim], dtype=np.float32)
@@ -134,10 +135,10 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         self,
         obs_dim: int,
         size: int,
-        batch_size: int = 32,
+        batch_size: int = 200,
         alpha: float = 0.6,
         n_step: int = 1,
-        gamma: float = 0.99,
+        gamma: float = 0.95,
     ):
         """Initialization."""
         assert alpha >= 0
@@ -334,23 +335,29 @@ class Network(nn.Module):
         """Initialization."""
         super(Network, self).__init__()
 
+        print('DATA')
+        print('in_dim', in_dim)
+        print('out_dim', out_dim)
+        #sys.exit(1)
+
+        self.hidden_width = 128
         self.support = support
         self.out_dim = out_dim
         self.atom_size = atom_size
 
         # set common feature layer
         self.feature_layer = nn.Sequential(
-            nn.Linear(in_dim, 128),
+            nn.Linear(in_dim, self.hidden_width),
             nn.ReLU(),
         )
 
         # set advantage layer
-        self.advantage_hidden_layer = NoisyLinear(128, 128)
-        self.advantage_layer = NoisyLinear(128, out_dim * atom_size)
+        self.advantage_hidden_layer = NoisyLinear(self.hidden_width, self.hidden_width)
+        self.advantage_layer = NoisyLinear(self.hidden_width, out_dim * atom_size)
 
         # set value layer
-        self.value_hidden_layer = NoisyLinear(128, 128)
-        self.value_layer = NoisyLinear(128, atom_size)
+        self.value_hidden_layer = NoisyLinear(self.hidden_width, self.hidden_width)
+        self.value_layer = NoisyLinear(self.hidden_width, atom_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward method implementation."""
@@ -413,7 +420,7 @@ class DQNAgent:
         batch_size: int,
         target_update: int,
         seed: int,
-        gamma: float = 0.99,
+        gamma: float = 0.95,
         # PER parameters
         alpha: float = 0.2,
         beta: float = 0.6,
@@ -424,6 +431,7 @@ class DQNAgent:
         atom_size: int = 51,
         # N-step Learning
         n_step: int = 3,
+        LR = 5e-4
     ):
         """Initialization.
 
@@ -462,8 +470,11 @@ class DQNAgent:
         # memory for 1-step Learning
         self.beta = beta
         self.prior_eps = prior_eps
-        self.memory = PrioritizedReplayBuffer(
-            obs_dim, memory_size, batch_size, alpha=alpha
+        # self.memory = PrioritizedReplayBuffer(
+        #     obs_dim, memory_size, batch_size, alpha=alpha
+        # )
+        self.memory = ReplayBuffer(
+            obs_dim, memory_size, batch_size
         )
 
         # memory for N-step Learning
@@ -482,18 +493,50 @@ class DQNAgent:
             self.v_min, self.v_max, self.atom_size
         ).to(self.device)
 
-        # networks: dqn, dqn_target
-        self.dqn = Network(
-            obs_dim, action_dim, self.atom_size, self.support
-        ).to(self.device)
-        self.dqn_target = Network(
-            obs_dim, action_dim, self.atom_size, self.support
-        ).to(self.device)
-        self.dqn_target.load_state_dict(self.dqn.state_dict())
-        self.dqn_target.eval()
+        self.LR = LR
+        self.LR = 1e-5
 
-        # optimizer
-        self.optimizer = optim.Adam(self.dqn.parameters())
+        load = True
+        if load:
+            try:
+                checkpoint = torch.load('./model/dqn-checkpoint.pt')
+                self.dqn = Network(
+                    obs_dim, action_dim, self.atom_size, self.support
+                ).to(self.device)
+                self.dqn_target = Network(
+                    obs_dim, action_dim, self.atom_size, self.support
+                ).to(self.device)
+                self.dqn_target.load_state_dict(self.dqn.state_dict())
+                self.dqn_target.eval()
+                self.optimizer = optim.Adam(self.dqn.parameters(), lr=self.LR)
+
+                self.dqn.load_state_dict(checkpoint['dqn'])
+                self.dqn_target.load_state_dict(checkpoint['dqn_target'])
+                self.optimizer.load_state_dict(checkpoint['optimizer'])
+            except:
+                print("ERROR: saved model doesn't exist. Training from scratch")
+                self.dqn = Network(
+                    obs_dim, action_dim, self.atom_size, self.support
+                ).to(self.device)
+                self.dqn_target = Network(
+                    obs_dim, action_dim, self.atom_size, self.support
+                ).to(self.device)
+                self.dqn_target.load_state_dict(self.dqn.state_dict())
+                self.dqn_target.eval()
+                self.optimizer = optim.Adam(self.dqn.parameters(), lr=self.LR)
+        else:
+            # networks: dqn, dqn_target
+            self.dqn = Network(
+                obs_dim, action_dim, self.atom_size, self.support
+            ).to(self.device)
+            self.dqn_target = Network(
+                obs_dim, action_dim, self.atom_size, self.support
+            ).to(self.device)
+            self.dqn_target.load_state_dict(self.dqn.state_dict())
+            self.dqn_target.eval()
+
+            # optimizer
+            self.optimizer = optim.Adam(self.dqn.parameters(), lr=self.LR)
 
         # transition to store in memory
         self.transition = list()
@@ -516,7 +559,7 @@ class DQNAgent:
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, np.float64, bool]:
         """Take an action and return the response of the env."""
-        next_state, reward, terminated, truncated, _ = self.env.step(action)
+        next_state, reward, terminated, truncated, info = self.env.step(action)
         done = terminated or truncated
 
         if not self.is_test:
@@ -533,22 +576,28 @@ class DQNAgent:
             if one_step_transition:
                 self.memory.store(*one_step_transition)
 
-        return next_state, reward, done
+        return next_state, reward, done, truncated, info
 
     def update_model(self) -> torch.Tensor:
         """Update the model by gradient descent."""
         # PER needs beta to calculate weights
-        samples = self.memory.sample_batch(self.beta)
-        weights = torch.FloatTensor(
-            samples["weights"].reshape(-1, 1)
-        ).to(self.device)
+        #samples = self.memory.sample_batch(self.beta) # This is if PER is used
+        samples = self.memory.sample_batch()
+
+        # For PER
+        # weights = torch.FloatTensor(
+        #     samples["weights"].reshape(-1, 1)
+        # ).to(self.device)
         indices = samples["indices"]
 
         # 1-step Learning loss
         elementwise_loss = self._compute_dqn_loss(samples, self.gamma)
 
+        # ReplayBuffer loss
+        loss = torch.mean(elementwise_loss)
+
         # PER: importance sampling before average
-        loss = torch.mean(elementwise_loss * weights)
+        #loss = torch.mean(elementwise_loss * weights)
 
         # N-step Learning loss
         # we are gonna combine 1-step loss and n-step loss so as to
@@ -560,7 +609,8 @@ class DQNAgent:
             elementwise_loss += elementwise_loss_n_loss
 
             # PER: importance sampling before average
-            loss = torch.mean(elementwise_loss * weights)
+            #loss = torch.mean(elementwise_loss * weights)
+            loss = torch.mean(elementwise_loss)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -570,7 +620,7 @@ class DQNAgent:
         # PER: update priorities
         loss_for_prior = elementwise_loss.detach().cpu().numpy()
         new_priorities = loss_for_prior + self.prior_eps
-        self.memory.update_priorities(indices, new_priorities)
+        #self.memory.update_priorities(indices, new_priorities) # For PER
 
         # NoisyNet: reset noise
         self.dqn.reset_noise()
@@ -578,75 +628,122 @@ class DQNAgent:
 
         return loss.item()
 
-    def train(self, num_frames: int, plotting_interval: int = 200):
+
+    @staticmethod
+    def graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episode):
+        start = 310
+        end = 1010
+        x = list(range(end - start))
+
+        print(len(x))
+        print(len(cooling_setpoints[start:end]))
+
+        fig, ax1 = plt.subplots()
+        ax1.set_title('10 - 310 steps of training {} episodes'.format(episode))
+        ax1.scatter(x, cooling_setpoints[start:end], color='red')
+        ax1.plot(x, outdoor_temperatures[start:end], linestyle='--', color='green')
+        ax1.plot(x, indoor_temperatures[start:end], linestyle='--', color='magenta')
+
+        ax2 = ax1.twinx()
+        ax2.plot(x, cost_signals[start:end])
+        fig.tight_layout()
+        plt.savefig('./logs/dqn-curr.png')
+
+
+    def model_save(self, episodes, frame_idx):
+        '''
+        episodes: trained number of episodes
+        frame_idx: number of steps trained
+        '''
+        print('######')
+        print('Saving model with {} episodes trained'.format(episodes))
+        print('######')
+        torch.save({
+            'episode': episodes,
+            'steps_trained': frame_idx,
+            'dqn': self.dqn.state_dict(),
+            'dqn_target': self.dqn_target.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+        }, './model/dqn-checkpoint.pt')
+        print('Model saving test')
+
+    def model_load():
+        '''
+        try to load from ./model/dqn-checkpoint.pt
+        If model unavailable, then skip
+        DEPRECATED: model_load functionality now happens in DQNagent __init__()
+        '''
+        pass
+
+    def train(self, num_steps: int, start_episode: int = 200):
         """Train the agent."""
         self.is_test = False
 
-        state, _ = self.env.reset(seed=self.seed)
+        state = self.env.reset(seed=self.seed)
         update_cnt = 0
         losses = []
         scores = []
         score = 0
 
-        for frame_idx in range(1, num_frames + 1):
+        episodes = start_episode
+        cost_signals = []
+        cooling_setpoints = []
+        outdoor_temperatures = []
+        indoor_temperatures = []
+
+        for frame_idx in range(1, num_steps + 1):
             action = self.select_action(state)
-            next_state, reward, done = self.step(action)
+            next_state, reward, done, truncated, info = self.step(action)
 
             state = next_state
-            score += reward
+            score += info['cost_reward']
+
+            # add for graphing()
+            cost_signals.append(info['cost_signal'])
+            cooling_setpoints.append(info['cooling_actuator_value'])
+            outdoor_temperatures.append(next_state[0])
+            indoor_temperatures.append(next_state[1])
 
             # NoisyNet: removed decrease of epsilon
 
             # PER: increase beta
-            fraction = min(frame_idx / num_frames, 1.0)
+            fraction = min(frame_idx / num_steps, 1.0)
             self.beta = self.beta + fraction * (1.0 - self.beta)
 
             # if episode ends
             if done:
-                state, _ = self.env.reset(seed=self.seed)
+                state = self.env.reset(seed=self.seed)
                 scores.append(score)
+                f_name = './logs/dqn-scores.txt'
+                with open(f_name, 'a') as scores_f:
+                    scores_f.write(str(score) + '\n')
                 score = 0
+                episodes += 1
+
+                self.graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
+
+                if episodes % 2 == 0 and episodes != 0:
+                    self.model_save(episodes, frame_idx)
+
+                cost_signals = []
+                cooling_setpoints = []
+                outdoor_temperatures = []
+                indoor_temperatures = []
 
             # if training is ready
-            if len(self.memory) >= self.batch_size:
-                loss = self.update_model()
-                losses.append(loss)
-                update_cnt += 1
+                print('TRAINING')
+                print('BATCH SIZE', self.batch_size)
+                if len(self.memory) >= self.batch_size:
+                    loss = self.update_model()
+                    losses.append(loss)
+                    with open('./logs/dqn-loss.txt', 'a') as loss_f:
+                        loss_f.write(str(loss) + '\n')
+                    update_cnt += 1
 
-                # if hard update is needed
-                if update_cnt % self.target_update == 0:
-                    self._target_hard_update()
+                    # if hard update is needed
+                    if update_cnt % self.target_update == 0:
+                        self._target_hard_update()
 
-            # plotting
-            if frame_idx % plotting_interval == 0:
-                self._plot(frame_idx, scores, losses)
-
-        self.env.close()
-
-    def test(self, video_folder: str) -> None:
-        """Test the agent."""
-        self.is_test = True
-
-        # for recording a video
-        naive_env = self.env
-        self.env = gym.wrappers.RecordVideo(self.env, video_folder=video_folder)
-
-        state, _ = self.env.reset(seed=self.seed)
-        done = False
-        score = 0
-
-        while not done:
-            action = self.select_action(state)
-            next_state, reward, done = self.step(action)
-
-            state = next_state
-            score += reward
-
-        print("score: ", score)
-        self.env.close()
-
-        # reset
-        self.env = naive_env
 
     def _compute_dqn_loss(self, samples: Dict[str, np.ndarray], gamma: float) -> torch.Tensor:
         """Return categorical dqn loss."""
@@ -716,14 +813,22 @@ class DQNAgent:
         plt.plot(losses)
         plt.show()
 
+default_args = {'idf': '../in.idf',
+                'epw': '../weather.epw',
+                'csv': True,
+                'output': './output',
+                'timesteps': 1000000.0,
+                'num_workers': 2,
+                'annual': False,# for some reasons if not annual, funky results
+                }
 
 if __name__ == "__main__":
-    env = gym.make("CartPole-v1", max_episode_steps=200, render_mode="rgb_array")
+    env = base.EnergyPlusEnv(default_args)
     # parameters
-    num_frames = 10000
+    num_steps = 10000000
     memory_size = 10000
-    batch_size = 128
-    target_update = 100
+    batch_size = 512
+    target_update = 25
 
     seed = 777
 
@@ -741,4 +846,4 @@ if __name__ == "__main__":
     # train
     agent = DQNAgent(env, memory_size, batch_size, target_update, seed)
 
-    agent.train(num_frames)
+    agent.train(num_steps)

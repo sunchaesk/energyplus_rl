@@ -264,9 +264,15 @@ class EnergyPlusRunner:
         minute = self.x.minutes(self.energyplus_state)
         day_of_week = self.x.day_of_week(self.energyplus_state)
 
+        # decompose hour of week to day_of_week & hour
+        self.next_obs['hour'] = hour
+        self.next_obs['day_of_week'] = day_of_week
+
         # hour of week observation value
-        hour_of_week = (24 * (day_of_week - 1)) + hour
-        self.next_obs['hour_of_week'] = hour_of_week
+        b_hour_of_week_obs = True
+        if b_hour_of_week_obs:
+            hour_of_week = (24 * (day_of_week - 1)) + hour
+            self.next_obs['hour_of_week'] = hour_of_week
 
         # cost_rate_signal
         if day_of_week in [1, 7]:
@@ -285,7 +291,7 @@ class EnergyPlusRunner:
 
         # deterministic forecast of exogen states
         # NOTE: self.exo_states_cache is where the cache is saved
-        forecast = True
+        forecast = False
         if forecast:
             future_steps = [2,5,8,11,14]
             future_data = []
@@ -311,6 +317,9 @@ class EnergyPlusRunner:
                     #self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
 
 
+        print('')
+        print(self.next_obs)
+        sys.exit(1)
         self.obs_queue.put(self.next_obs)
 
     @staticmethod
@@ -564,12 +573,16 @@ class EnergyPlusEnv(gym.Env):
         reward_cost = self._compute_reward_cost(obs, hour, minute, day_of_week, reward_kilowatts)
         reward_cost_signal = self._compute_cost_signal(obs, hour, minute, day_of_week)
 
+        #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
+
+        cooling_actuator_value = self.energyplus_runner.x.get_actuator_value(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
 
 
         obs_vec = np.array(list(obs.values()))
-        return obs_vec, reward, done, False, {'cooling_actuator_value': sat_spt_value,
-                                              'cost_signal': reward_cost_signal}
+        return obs_vec, reward, done, False, {'cooling_actuator_value': cooling_actuator_value,
+                                              'cost_signal': reward_cost_signal,
+                                              'cost_reward': reward_cost}
 
     def render(self, mode="human"):
         pass
@@ -649,7 +662,7 @@ if __name__ == "__main__":
     print('action_space:', end='')
     print(env.action_space)
     print("OBS SHAPE:", env.observation_space.shape)
-    scores = []
+    rewards = []
 
     for episode in range(1):
         state = env.reset()
@@ -658,9 +671,11 @@ if __name__ == "__main__":
 
         while not done:
             action = env.action_space.sample()
-            action = 60
+            action = 0
             ret = n_state, reward, done, truncated, info = env.step(action)
+            print('reward', reward)
             score += reward
+            rewards.append(reward)
             # print('cost', reward)
             #print('obs', n_state)
             #print('sat_spt', info['cooling_actuator_value'])
@@ -668,7 +683,9 @@ if __name__ == "__main__":
             #score += info['energy_reward']
 
         print('score', score)
-        scores.append(score)
+        print('reward min action', max(rewards), min(rewards))
+#reward max action -0.0 -34.13746671484545
+#reward min action -0.0 -33.351096631349364
 
     # for episode in range(1):
     #     state = env.reset()

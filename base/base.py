@@ -575,9 +575,10 @@ class EnergyPlusEnv(gym.Env):
 
         reward = reward_cost
 
+        cooling_actuator_value = self.energyplus_runner.x.get_actuator_handle(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
 
         obs_vec = np.array(list(obs.values()))
-        return obs_vec, reward, done, False, {'cooling_actuator_value': sat_spt_value,
+        return obs_vec, reward, done, False, {'cooling_actuator_value': cooling_actuator_value,
                                               'cost_signal': reward_cost_signal}
 
     def render(self, mode="human"):
