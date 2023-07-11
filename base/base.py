@@ -1,12 +1,3 @@
-'''
-Will be used for DQN training
-base.py is currently being used for training main.py which uses ppo.py
-'''
-
-
-
-#
-#
 # pip installed ray, tabulate, tree
 # pip uninstalled ''
 import argparse
@@ -30,7 +21,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete, Box
 
-sys.path.insert(0, '/home/ck/Downloads/EnergyPlus-23.1.0-87ed9199d4-Linux-CentOS7.9.2009-x86_64/')
+sys.path.insert(0, '/home/ck/Downloads/Eplus/')
 from pyenergyplus.api import EnergyPlusAPI
 from pyenergyplus.datatransfer import DataExchange
 
@@ -112,11 +103,12 @@ def parse_args() -> argparse.Namespace:
 
 class EnergyPlusRunner:
 
-    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue) -> None:
+    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue, meter_queue: Queue) -> None:
         self.episode = episode
         self.env_config = env_config
         self.obs_queue = obs_queue
         self.act_queue = act_queue
+        self.meter_queue = meter_queue
 
         self.energyplus_api = EnergyPlusAPI()
         self.x: DataExchange = self.energyplus_api.exchange
@@ -194,6 +186,7 @@ class EnergyPlusRunner:
 
         # register callback used to collect observations
         runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_obs)
+        runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_meter)
 
         # register callback used to send actions
         runtime.callback_after_predictor_after_hvac_managers(self.energyplus_state, self._send_actions)
@@ -244,6 +237,19 @@ class EnergyPlusRunner:
         ]
         return eplus_args
 
+    def _collect_meter(self, state_argument) -> None:
+        if self.simulation_complete or not self._init_callback(state_argument):
+            return None
+
+        self.next_meter = {
+            **{
+                key: self.x.get_meter_value(state_argument, handle)
+                for key, handle
+                in self.meter_handles.items()
+            }
+        }
+        self.meter_queue.put(self.next_meter)
+
     def _collect_obs(self, state_argument) -> None:
         """
         EnergyPlus callback that collects output variables/meters
@@ -258,11 +264,11 @@ class EnergyPlusRunner:
                 for key, handle
                 in self.var_handles.items()
             },
-            **{
-                key: self.x.get_meter_value(state_argument, handle)
-                for key, handle
-                in self.meter_handles.items()
-            }
+            # **{
+            #     key: self.x.get_meter_value(state_argument, handle)
+            #     for key, handle
+            #     in self.meter_handles.items()
+            # }
         }
 
         # setup simulation times
@@ -273,9 +279,15 @@ class EnergyPlusRunner:
         minute = self.x.minutes(self.energyplus_state)
         day_of_week = self.x.day_of_week(self.energyplus_state)
 
+        # decompose hour of week to day_of_week & hour
+        self.next_obs['hour'] = hour
+        self.next_obs['day_of_week'] = day_of_week
+
         # hour of week observation value
-        hour_of_week = (24 * (day_of_week - 1)) + hour
-        self.next_obs['hour_of_week'] = hour_of_week
+        b_hour_of_week_obs = True
+        if b_hour_of_week_obs:
+            hour_of_week = (24 * (day_of_week - 1)) + hour
+            self.next_obs['hour_of_week'] = hour_of_week
 
         # cost_rate_signal
         if day_of_week in [1, 7]:
@@ -296,7 +308,7 @@ class EnergyPlusRunner:
         # NOTE: self.exo_states_cache is where the cache is saved
         forecast = False
         if forecast:
-            future_steps = list(range(2,18))
+            future_steps = [2,5,8,11,14]
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -320,6 +332,8 @@ class EnergyPlusRunner:
                     #self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
 
 
+        # print(self.next_obs)
+        # sys.exit(1)
         self.obs_queue.put(self.next_obs)
 
     @staticmethod
@@ -471,7 +485,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 9
+        obs_len = 10
         low_obs = np.array(
             [-1e8] * obs_len
         )
@@ -489,6 +503,7 @@ class EnergyPlusEnv(gym.Env):
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
+        self.meter_queue: Optional[Queue] = None
 
     def reset(
         self, *,
@@ -506,12 +521,14 @@ class EnergyPlusEnv(gym.Env):
         # as only 1 E+ timestep is processed at a time
         self.obs_queue = Queue(maxsize=1)
         self.act_queue = Queue(maxsize=1)
+        self.meter_queue = Queue(maxsize=1)
 
         self.energyplus_runner = EnergyPlusRunner(
             episode=self.episode,
             env_config=self.env_config,
             obs_queue=self.obs_queue,
-            act_queue=self.act_queue
+            act_queue=self.act_queue,
+            meter_queue=self.meter_queue
         )
         self.energyplus_runner.start()
 
@@ -521,8 +538,10 @@ class EnergyPlusEnv(gym.Env):
 
         try:
             obs = self.obs_queue.get()
+            meter = self.meter_queue.get()
         except Empty:
             obs = self.last_obs
+            meter = self.last_meter
 
         return np.array(list(obs.values()))
 
@@ -558,9 +577,11 @@ class EnergyPlusEnv(gym.Env):
             try:
                 self.act_queue.put(sat_spt_value, timeout=timeout)
                 self.last_obs = obs = self.obs_queue.get(timeout=timeout)
+                self.last_meter = meter = self.meter_queue.get(timeout=timeout)
             except (Full, Empty):
                 done = True
                 obs = self.last_obs
+                meter = self.last_meter
 
         # time inside simulation data
         hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
@@ -568,30 +589,33 @@ class EnergyPlusEnv(gym.Env):
         day_of_week = self.energyplus_runner.x.day_of_week(self.energyplus_runner.energyplus_state)
 
         # compute reward
-        reward_energy = self._compute_reward(obs)
-        reward_kilowatts = self._compute_reward_energy_kilowatts(obs)
+        reward_energy = self._compute_reward(obs, meter)
+        reward_kilowatts = self._compute_reward_energy_kilowatts(obs, meter)
         reward_cost = self._compute_reward_cost(obs, hour, minute, day_of_week, reward_kilowatts)
         reward_cost_signal = self._compute_cost_signal(obs, hour, minute, day_of_week)
 
+        #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
 
-        cooling_actuator_value = self.energyplus_runner.x.get_actuator_handle(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
+        cooling_actuator_value = self.energyplus_runner.x.get_actuator_value(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
+
 
         obs_vec = np.array(list(obs.values()))
         return obs_vec, reward, done, False, {'cooling_actuator_value': cooling_actuator_value,
-                                              'cost_signal': reward_cost_signal}
+                                              'cost_signal': reward_cost_signal,
+                                              'cost_reward': reward_cost}
 
     def render(self, mode="human"):
         pass
 
     @staticmethod
-    def _compute_reward(obs: Dict[str, float]) -> float:
-        reward = -1 * obs['elec_cooling']
+    def _compute_reward(obs: Dict[str, float], meter) -> float:
+        reward = -1 * meter['elec_cooling']
         return reward
 
     @staticmethod
-    def _compute_reward_energy_kilowatts(obs: Dict[str, float]) -> float:
-        reward = -1 * obs['elec_cooling']
+    def _compute_reward_energy_kilowatts(obs: Dict[str, float], meter) -> float:
+        reward = -1 * meter['elec_cooling']
         reward_watt = reward / (10 * 60)
         reward_kilowatt = reward_watt / 1000
         return reward_kilowatt
@@ -659,7 +683,7 @@ if __name__ == "__main__":
     print('action_space:', end='')
     print(env.action_space)
     print("OBS SHAPE:", env.observation_space.shape)
-    scores = []
+    rewards = []
 
     for episode in range(1):
         state = env.reset()
@@ -668,9 +692,10 @@ if __name__ == "__main__":
 
         while not done:
             action = env.action_space.sample()
-            action = 60
+            action = 0
             ret = n_state, reward, done, truncated, info = env.step(action)
             score += reward
+            rewards.append(reward)
             # print('cost', reward)
             #print('obs', n_state)
             #print('sat_spt', info['cooling_actuator_value'])
@@ -678,7 +703,9 @@ if __name__ == "__main__":
             #score += info['energy_reward']
 
         print('score', score)
-        scores.append(score)
+        print('reward min action', max(rewards), min(rewards))
+#reward max action -0.0 -34.13746671484545
+#reward min action -0.0 -33.351096631349364
 
     # for episode in range(1):
     #     state = env.reset()
