@@ -21,7 +21,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete, Box
 
-sys.path.insert(0, '/home/ck/Downloads/EnergyPlus-23.1.0-87ed9199d4-Linux-CentOS7.9.2009-x86_64/')
+sys.path.insert(0, '/home/ck/Downloads/Eplus/')
 from pyenergyplus.api import EnergyPlusAPI
 from pyenergyplus.datatransfer import DataExchange
 
@@ -595,7 +595,7 @@ class EnergyPlusEnv(gym.Env):
         reward_cost_signal = self._compute_cost_signal(obs, hour, minute, day_of_week)
 
         #reward = max(0, reward_cost + 33.351096631349364)
-        reward = reward_cost
+        reward = reward_energy
 
         cooling_actuator_value = self.energyplus_runner.x.get_actuator_value(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
 
