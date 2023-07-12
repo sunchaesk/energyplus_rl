@@ -692,7 +692,7 @@ if __name__ == "__main__":
 
         while not done:
             action = env.action_space.sample()
-            action = 0
+            action = 60
             ret = n_state, reward, done, truncated, info = env.step(action)
             score += reward
             rewards.append(reward)

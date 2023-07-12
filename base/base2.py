@@ -566,6 +566,7 @@ class EnergyPlusEnv(gym.Env):
                 range1=(0, self.action_space.n),
                 range2=(20, 26)
             )
+            #print("SAT_SPT VALUE", sat_spt_value)
 
             # enqueue action (received by EnergyPlus through dedicated callback)
             # then wait to get next observation.

@@ -243,15 +243,15 @@ if __name__ == '__main__':
     epsilon_init = 0.95
     epsilon_decay = 0.99
     epsilon_min = 0.01
-    update_freq = 200
+    update_freq = 100
     gamma = 0.99
-    learning_rate = 1e-3
+    learning_rate = 1e-4
     atoms_num = 51
-    v_min = -10
-    v_max = 10
-    batch_size = 64
+    v_min = -37
+    v_max = 0
+    batch_size = 100
     capacity = 10000
-    exploration = 200
+    exploration = 5 # amount of exploration done before training
     n_step = 2
     render = False
 
@@ -281,7 +281,14 @@ if __name__ == '__main__':
         indoor_temperatures = []
         while True:
             action = eval_net.act(torch.FloatTensor(np.expand_dims(obs, 0)), epsilon)
+            print('ACTION', action)
             next_obs, reward, done, truncated, info = env.step(action)
+
+            cost_signals.append(info['cost_signal'])
+            cooling_setpoints.append(info['cooling_actuator_value'])
+            outdoor_temperatures.append(next_obs[0])
+            indoor_temperatures.append(next_obs[1])
+
             count += 1
             if render:
                 env.render()
