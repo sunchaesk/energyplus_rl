@@ -235,6 +235,7 @@ class PPO_discrete(object):
             print('STARTING AT EPISODE', checkpoint['episode'])
             print('#############################')
             return checkpoint['episode']
-        except:
+        except Exception as e:
+            print('ERROR e:', e)
             print('ERROR: no model saved in ./model/checkpoint.pt')
             return 0

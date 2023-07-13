@@ -121,6 +121,9 @@ class EnergyPlusRunner:
         self.progress_value: int = 0
         self.simulation_complete = False
 
+        # prev cost
+        self.prev_cost = 0
+
         # request variables to be available during runtime
         self.request_variable_complete = False
 
@@ -286,6 +289,9 @@ class EnergyPlusRunner:
         # NOTE: testing if minute makes difference
         self.next_obs['minute'] = minute
 
+        # prev reward
+        # self.next_obs['prev_cost'] = self.prev_cost
+
         # hour of week observation value
         b_hour_of_week_obs = True
         if b_hour_of_week_obs:
@@ -311,7 +317,7 @@ class EnergyPlusRunner:
         # NOTE: self.exo_states_cache is where the cache is saved
         forecast = True
         if forecast:
-            future_steps = [2,5,8,11,14,17]
+            future_steps = [2,5,8,11,14,17,20,23,26,29]
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -334,9 +340,6 @@ class EnergyPlusRunner:
                     self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
                     #self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
 
-
-        # print(self.next_obs)
-        # sys.exit(1)
         self.obs_queue.put(self.next_obs)
 
     @staticmethod
@@ -488,7 +491,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 11
+        obs_len = 51
         low_obs = np.array(
             [-1e8] * obs_len
         )
@@ -602,6 +605,9 @@ class EnergyPlusEnv(gym.Env):
         #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
 
+        # save the current reward as the prev reward
+        self.energyplus_runner.prev_cost = reward
+
         cooling_actuator_value = self.energyplus_runner.x.get_actuator_value(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
 
 
@@ -694,17 +700,20 @@ if __name__ == "__main__":
         state = env.reset()
         done = False
         score = 0
+        steps = 1
 
         while not done:
+            print('------------------STEPS {}-----------------'.format(steps))
             action = env.action_space.sample()
             action = 0
             ret = n_state, reward, done, truncated, info = env.step(action)
             score += reward
             rewards.append(reward)
-            # print('cost', reward)
+            print('cost', reward)
             #print('obs', n_state)
             #print('sat_spt', info['cooling_actuator_value'])
 
+            steps += 1
             #score += info['energy_reward']
 
         print('score', score)

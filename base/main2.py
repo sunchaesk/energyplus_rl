@@ -196,6 +196,12 @@ def main():
 
             if traj_lenth % T_horizon == 0:
                 a_loss, c_loss, entropy = model.train()
+                open('./logs/a_loss2.txt', 'w').close()
+                with open('./logs/a_loss2.txt','a') as loss_handle:
+                    loss_handle.write(str(a_loss) + '\n')
+                open('./logs/c_loss2.txt', 'w').close()
+                with open('./logs/c_loss2.txt', 'a') as loss_handle:
+                    loss_handle.write(str(c_loss) + '\n')
                 traj_lenth = 0
 
 

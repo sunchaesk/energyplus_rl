@@ -216,7 +216,7 @@ if __name__ == "__main__":
     else:
         print('custom')
         f_name = './logs/' + sys.argv[1] + '.txt'
-        plot_file(f_name, x='episode', y='Episode Energy Consumption', title='demand response training file: {}'.format(sys.argv[1]))
+        plot_file(f_name, x='episode', y='Episode Energy Consumption', title='demand response training file: {} [30 timestep forecasts interval of 3]'.format(sys.argv[1]))
 
     # l = [
     #     ('./logs/scores.txt', 'no dr'),

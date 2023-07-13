@@ -53,7 +53,7 @@ parser.add_argument('--adv_normalization', type=str2bool, default=False, help='A
 opt = parser.parse_args()
 print(opt)
 
-'''Hyperparameter Setting Tried for training continuation'''
+# '''Hyperparameter Setting'''
 # parser = argparse.ArgumentParser()
 # parser.add_argument('--EnvIdex', type=int, default=0, help='CP-v1, LLd-v2')
 # parser.add_argument('--write', type=str2bool, default=True, help='Use SummaryWriter to record the training')
@@ -70,13 +70,13 @@ print(opt)
 # parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
 # parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
 # parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
-# parser.add_argument('--K_epochs', type=int, default=300, help='PPO update times')
-# parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
-# parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate')
+# parser.add_argument('--K_epochs', type=int, default=100, help='PPO update times')
+# parser.add_argument('--net_width', type=int, default=250, help='Hidden net width')
+# parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
 # parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
-# parser.add_argument('--batch_size', type=int, default=500, help='lenth of sliced trajectory')
-# parser.add_argument('--entropy_coef', type=float, default=0.00000, help='Entropy coefficient of Actor')
-# parser.add_argument('--entropy_coef_decay', type=float, default=0.0, help='Decay rate of entropy_coef')
+# parser.add_argument('--batch_size', type=int, default=1000, help='lenth of sliced trajectory')
+# parser.add_argument('--entropy_coef', type=float, default=0.0000, help='Entropy coefficient of Actor')
+# parser.add_argument('--entropy_coef_decay', type=float, default=0.9995, help='Decay rate of entropy_coef')
 # parser.add_argument('--adv_normalization', type=str2bool, default=False, help='Advantage normalization')
 # opt = parser.parse_args()
 # print(opt)
@@ -158,7 +158,7 @@ def main():
     if not os.path.exists('model'): os.mkdir('model')
     model = PPO_discrete(**kwargs)
     Loadmodel = True
-    if Loadmodel: model.load(None)
+    if Loadmodel: model.load('checkpoint')
 
     scores = []
     episodes = 0
@@ -196,6 +196,12 @@ def main():
 
             if traj_lenth % T_horizon == 0:
                 a_loss, c_loss, entropy = model.train()
+                open('./logs/a_loss.txt', 'w').close()
+                with open('./logs/a_loss.txt','a') as loss_handle:
+                    loss_handle.write(str(a_loss) + '\n')
+                open('./logs/c_loss.txt', 'w').close()
+                with open('./logs/c_loss.txt', 'a') as loss_handle:
+                    loss_handle.write(str(c_loss) + '\n')
                 traj_lenth = 0
 
 
