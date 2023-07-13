@@ -1,5 +1,5 @@
 
-import base as base
+import base2 as base
 import sys
 import matplotlib.pyplot as plt
 
@@ -113,7 +113,7 @@ def graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_tempe
     ax2 = ax1.twinx()
     ax2.plot(x, cost_signals[start:end])
     fig.tight_layout()
-    plt.savefig('./logs/curr.png')
+    plt.savefig('./logs/curr2.png')
 
 def main():
     #env = gym.make(EnvName[EnvIdex])
@@ -204,11 +204,11 @@ def main():
             if done:
                 '''save model'''
                 if episodes != 0 and episodes % 2 == 0:
-                    model.save(total_steps, 'checkpoint')
+                    model.save(total_steps, 'checkpoint2')
                 graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
                 scores.append(ep_r)
                 episodes += 1
-                f_name = './logs/scores.txt'
+                f_name = './logs/scores2.txt'
                 with open(f_name, 'a') as scores_f:
                     scores_f.write(str(ep_r) + '\n')
 

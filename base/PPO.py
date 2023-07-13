@@ -205,7 +205,7 @@ class PPO_discrete(object):
     def put_data(self, transition):
         self.data.append(transition)
 
-    def save(self, episode):
+    def save(self, episode, save_name):
         print('######')
         print('Saving model with {} episodes trained'.format(episode))
         print('######')
@@ -215,14 +215,18 @@ class PPO_discrete(object):
             'actor_optimizer': self.actor_optimizer.state_dict(),
             'critic_state_dict': self.critic.state_dict(),
             'critic_optimizer': self.critic_optimizer.state_dict(),
-        }, './model/checkpoint.pt')
+        }, './model/' + save_name + '.pt')
 
-    def load(self) -> int:
+    def load(self, save_name) -> int:
         '''
         return the starting episode number
         '''
         try:
-            checkpoint = torch.load('./model/checkpoint.pt')
+            #checkpoint = torch.load('./model/checkpoint.pt')
+            if save_name != None:
+                checkpoint = torch.load('./model/' + save_name + '.pt')
+            else:
+                checkpoint = torch.load('./model/checkpoint.pt')
             self.actor.load_state_dict(checkpoint['actor_state_dict'])
             self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer'])
             self.critic.load_state_dict(checkpoint['critic_state_dict'])

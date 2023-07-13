@@ -21,7 +21,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete, Box
 
-sys.path.insert(0, '/home/ck/Downloads/Eplus/')
+sys.path.insert(0, '/home/ck/Downloads/EnergyPlus-23.1.0-87ed9199d4-Linux-CentOS7.9.2009-x86_64/')
 from pyenergyplus.api import EnergyPlusAPI
 from pyenergyplus.datatransfer import DataExchange
 
@@ -306,9 +306,10 @@ class EnergyPlusRunner:
 
         # deterministic forecast of exogen states
         # NOTE: self.exo_states_cache is where the cache is saved
-        forecast = False
+        forecast = True
         if forecast:
-            future_steps = [2,5,8,11,14]
+            #future_steps = [2,5,8,11,14,17]
+            future_steps = list(range(2, 17 + 1))
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -485,7 +486,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 10
+        obs_len = 74
         low_obs = np.array(
             [-1e8] * obs_len
         )
@@ -559,6 +560,7 @@ class EnergyPlusEnv(gym.Env):
         if self.energyplus_runner.simulation_complete:
             done = True
             obs = self.last_obs
+            meter = self.last_meter
         else:
             # rescale agent decision to actuator range
             sat_spt_value = self._rescale(
@@ -595,7 +597,7 @@ class EnergyPlusEnv(gym.Env):
         reward_cost_signal = self._compute_cost_signal(obs, hour, minute, day_of_week)
 
         #reward = max(0, reward_cost + 33.351096631349364)
-        reward = reward_energy
+        reward = reward_cost
 
         cooling_actuator_value = self.energyplus_runner.x.get_actuator_value(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
 
