@@ -13,6 +13,7 @@ import time
 
 import random
 
+import numpy as np
 import scipy
 import pickle
 import matplotlib.pyplot as plt
@@ -609,6 +610,7 @@ class EnergyPlusEnv(gym.Env):
 
         #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
+        reward = np.interp(reward, [-40, 0], [-1000000, 0])
 
         # save the current reward as the prev cost
         self.energyplus_runner.prev_cost = reward
