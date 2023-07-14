@@ -1085,6 +1085,7 @@ class EnergyPlusEnv(gym.Env):
 
         reward = scaled_reward_cost + lambda_scaled_reward_thermal_comfort
 
+        reward = reward_energy
 
         PENALTY = 0
 

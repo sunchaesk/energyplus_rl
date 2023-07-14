@@ -2,14 +2,11 @@ __pycache__
 ./agent/output/
 ./__pycache__
 
-agent/model/
 agent/output/
 agent/logs/
 
-mask-agent/model/
 mask-agent/output/
 mask-agent/logs/
 
-base/model/
 base/output/
 base/logs/

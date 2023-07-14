@@ -123,6 +123,8 @@ class EnergyPlusRunner:
 
         # prev cost
         self.prev_cost = 0
+        # prev actuator value
+        self.prev_actuator_value = 0
 
         # request variables to be available during runtime
         self.request_variable_complete = False
@@ -287,10 +289,12 @@ class EnergyPlusRunner:
         self.next_obs['day_of_week'] = day_of_week
 
         # NOTE: testing if minute makes difference
-        self.next_obs['minute'] = minute
+        # self.next_obs['minute'] = minute
 
         # prev reward
         # self.next_obs['prev_cost'] = self.prev_cost
+        # prev actuator value
+        # self.next_obs['prev_actuator_value'] = self.prev_actuator_value
 
         # hour of week observation value
         b_hour_of_week_obs = True
@@ -317,7 +321,7 @@ class EnergyPlusRunner:
         # NOTE: self.exo_states_cache is where the cache is saved
         forecast = True
         if forecast:
-            future_steps = [2,5,8,11,14,17,20,23,26,29]
+            future_steps = [2,5,8,11,14,17,]
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -340,6 +344,7 @@ class EnergyPlusRunner:
                     self.next_obs[key + '_' + str(curr_n)] = future_data[i][key]
                     #self.normalized_next_obs[key + '_' + str(curr_n)] = np.interp(future_data[i][key], list(self.variables[key][2]),[-1, 1])
 
+        #print('OBS:', self.next_obs)
         self.obs_queue.put(self.next_obs)
 
     @staticmethod
@@ -491,7 +496,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 51
+        obs_len = 34
         low_obs = np.array(
             [-1e8] * obs_len
         )
@@ -605,11 +610,11 @@ class EnergyPlusEnv(gym.Env):
         #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
 
-        # save the current reward as the prev reward
+        # save the current reward as the prev cost
         self.energyplus_runner.prev_cost = reward
-
+        # save the previously acutated actuator value
         cooling_actuator_value = self.energyplus_runner.x.get_actuator_value(self.energyplus_runner.energyplus_state, self.energyplus_runner.actuator_handles['cooling_actuator_living'])
-
+        self.energyplus_runner.prev_actuator_value = cooling_actuator_value
 
         obs_vec = np.array(list(obs.values()))
         return obs_vec, reward, done, False, {'cooling_actuator_value': cooling_actuator_value,
@@ -705,13 +710,18 @@ if __name__ == "__main__":
         while not done:
             print('------------------STEPS {}-----------------'.format(steps))
             action = env.action_space.sample()
-            action = 0
             ret = n_state, reward, done, truncated, info = env.step(action)
             score += reward
             rewards.append(reward)
-            print('cost', reward)
-            #print('obs', n_state)
-            #print('sat_spt', info['cooling_actuator_value'])
+            # print('cost', reward)
+            print('obs', n_state, len(n_state))
+
+            action = env._rescale(
+                n=int(action),  # noqa
+                range1=(0, env.action_space.n),
+                range2=(20, 26)
+            )
+            print('ACTION:', action)
 
             steps += 1
             #score += info['energy_reward']

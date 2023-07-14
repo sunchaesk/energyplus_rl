@@ -43,7 +43,7 @@ parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor
 parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
 parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
 parser.add_argument('--K_epochs', type=int, default=50, help='PPO update times')
-parser.add_argument('--net_width', type=int, default=250, help='Hidden net width')
+parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
 parser.add_argument('--lr', type=float, default=5e-4, help='Learning rate')
 parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
 parser.add_argument('--batch_size', type=int, default=500, help='lenth of sliced trajectory')
@@ -192,7 +192,7 @@ def main():
             dw = False
             model.put_data((s, a, r, s_prime, pi_a, done, dw))
             s = s_prime
-            ep_r += r
+            ep_r += info['cost_reward']
 
             if traj_lenth % T_horizon == 0:
                 a_loss, c_loss, entropy = model.train()
