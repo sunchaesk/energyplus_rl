@@ -70,7 +70,7 @@ opt = parser.parse_args()
 print(opt)
 
 
-def test(checkpoint_path):
+def test(checkpoint_path, graph=True):
     #env = gym.make(EnvName[EnvIdex])
     env = base.EnergyPlusEnv(default_args)
     #eval_env = gym.make(EnvName[EnvIdex])
@@ -154,6 +154,15 @@ def test(checkpoint_path):
             if done:
                 break
 
+
+    # calculate total variance
+    total_variance = 0
+    for i in range(1, len(cooling_setpoint)):
+        total_variance += abs(cooling_setpoint[i] - cooling_setpoint[i - 1])
+    print('TOTAL VARIANCE', total_variance)
+    # INFO w/out CAPS
+    #
+
     steps_start = 110
     steps = 1110
     size = steps - steps_start
@@ -182,8 +191,9 @@ def test(checkpoint_path):
     ax1.legend()
     ax2.legend()
     fig.tight_layout()
-    plt.show()
-    return episode_reward
+    if graph:
+        plt.show()
+    return episode_reward, total_variance
 
 
 def test_max():
@@ -225,6 +235,7 @@ def test_max():
             if done:
                 break
 
+
     steps_start = 10
     steps = 710
     size = steps - steps_start
@@ -257,7 +268,14 @@ def test_max():
     return episode_reward
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
-    test('checkpoint2.pt')
+    episode_reward = []
+    total_variance = []
+    for i in range(20):
+        temp = test('checkpoint2.pt', graph=False)
+        episode_reward.append(temp[0])
+        total_variance.append(temp[1])
+    print('episode_reward', episode_reward)
+    print('total variance', total_variance)
     #test_max()
     # model_scores = []
     # max_scores = []
@@ -272,3 +290,4 @@ if __name__ == "__main__":
     # plt.legend()
     # plt.title('Comparison of DR vs Max action')
     # plt.show()
+

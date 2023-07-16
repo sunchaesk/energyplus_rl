@@ -155,7 +155,7 @@ def main():
         "adv_normalization":opt.adv_normalization,
         "entropy_coef_decay": opt.entropy_coef_decay,
         "lambda_a": 1,
-        "lambda_s": 5,
+        "lambda_s": 2,
     }
 
     if not os.path.exists('model'): os.mkdir('model')
