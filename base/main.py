@@ -70,12 +70,12 @@ parser.add_argument('--eval_interval', type=int, default=5e3, help='Model evalua
 parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
 parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
 parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
-parser.add_argument('--K_epochs', type=int, default=10, help='PPO update times')
+parser.add_argument('--K_epochs', type=int, default=60, help='PPO update times')
 parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
-parser.add_argument('--lr', type=float, default=5e-7, help='Learning rate')
+parser.add_argument('--lr', type=float, default=5e-4, help='Learning rate')
 parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
 parser.add_argument('--batch_size', type=int, default=500, help='lenth of sliced trajectory')
-parser.add_argument('--entropy_coef', type=float, default=0.00001, help='Entropy coefficient of Actor')
+parser.add_argument('--entropy_coef', type=float, default=0.0003, help='Entropy coefficient of Actor')
 parser.add_argument('--entropy_coef_decay', type=float, default=0.99, help='Decay rate of entropy_coef')
 parser.add_argument('--adv_normalization', type=str2bool, default=False, help='Advantage normalization')
 opt = parser.parse_args()
@@ -158,7 +158,8 @@ def main():
     if not os.path.exists('model'): os.mkdir('model')
     model = PPO_discrete(**kwargs)
     Loadmodel = True
-    if Loadmodel: model.load('258111417-200/ppo-save3920')
+    #if Loadmodel: model.load('258111417-200/ppo-save3920')
+    if Loadmodel: model.load(None)
 
     scores = []
     episodes = 0
@@ -168,6 +169,8 @@ def main():
     outdoor_temperatures = []
     indoor_temperatures = []
 
+    b4200 = False
+    b4000 = False
 
     traj_lenth = 0
     total_steps = 0
@@ -195,7 +198,7 @@ def main():
             if episode_steps != 1:
                 model.put_data((s, a, r, s_prime, pi_a, done, dw))
             s = s_prime
-            ep_r += r
+            ep_r += info['cost_reward']
 
             if traj_lenth % T_horizon == 0:
                 a_loss, c_loss, entropy = model.train()
@@ -212,6 +215,16 @@ def main():
                 '''save model'''
                 if episodes != 0 and episodes % 2 == 0:
                     model.save(total_steps, 'checkpoint')
+
+                if not b4200:
+                    if ep_r < 4200:
+                        model.save(episodes, 'ppo-save4200')
+                        b4200 = True
+                if not b4000:
+                    if ep_r < 4000:
+                        model.save(episodes, 'ppo-save4200')
+                        b4000 = True
+
                 graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
                 scores.append(ep_r)
                 episodes += 1

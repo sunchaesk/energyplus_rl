@@ -288,7 +288,7 @@ class EnergyPlusRunner:
         self.next_obs['day_of_week'] = day_of_week
 
         # NOTE: testing if minute makes difference
-        self.next_obs['minute'] = minute
+        # self.next_obs['minute'] = minute
 
         # prev reward
         # self.next_obs['prev_cost'] = self.prev_cost
@@ -318,7 +318,7 @@ class EnergyPlusRunner:
         # NOTE: self.exo_states_cache is where the cache is saved
         forecast = True
         if forecast:
-            future_steps = [2,5,8,11,14,17,20,23,26,29]
+            future_steps = [2,5,8,11,14,17,20,]
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -492,7 +492,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 51
+        obs_len = 38
         low_obs = np.array(
             [-1e8] * obs_len
         )
@@ -605,7 +605,7 @@ class EnergyPlusEnv(gym.Env):
 
         #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
-        reward = np.interp(reward, [-40, 0], [-10000, 0])
+        reward = np.interp(reward, [-40, 0], [-10000000, 0])
 
         # save the current reward as the prev reward
         self.energyplus_runner.prev_cost = reward

@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import gym
 import torch
 import numpy as np
-from PPO import device, PPO_discrete
+#from PPO import device, PPO_discrete
+from PPO_CAPS import device, PPO_discrete_CAPS
 from torch.utils.tensorboard import SummaryWriter
 import os, shutil
 from datetime import datetime
@@ -153,10 +154,12 @@ def main():
         "entropy_coef":opt.entropy_coef,  #hard env needs large value
         "adv_normalization":opt.adv_normalization,
         "entropy_coef_decay": opt.entropy_coef_decay,
+        "lambda_a": 1,
+        "lambda_s": 5,
     }
 
     if not os.path.exists('model'): os.mkdir('model')
-    model = PPO_discrete(**kwargs)
+    model = PPO_discrete_CAPS(**kwargs)
     Loadmodel = True
     if Loadmodel: model.load(None)
 

@@ -8,7 +8,7 @@ import numpy as np
 import json
 from collections import deque, namedtuple
 
-import base2 as base
+import base as base
 # import base_pmv as base
 
 import torch
@@ -59,7 +59,7 @@ parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor
 parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
 parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
 parser.add_argument('--K_epochs', type=int, default=50, help='PPO update times')
-parser.add_argument('--net_width', type=int, default=250, help='Hidden net width')
+parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
 parser.add_argument('--lr', type=float, default=5e-4, help='Learning rate')
 parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
 parser.add_argument('--batch_size', type=int, default=500, help='lenth of sliced trajectory')
@@ -140,7 +140,7 @@ def test(checkpoint_path):
 
             #print(state[0][0])
             steps += 1
-            episode_reward += reward
+            episode_reward += info['cost_reward']
             indoor_temp.append(next_state[1])
             outdoor_temp.append(next_state[0])
             cooling_setpoint.append(info['cooling_actuator_value'])
@@ -210,7 +210,8 @@ def test_max():
 
             #print(state[0][0])
             steps += 1
-            episode_reward += reward
+            episode_reward += info['cost_reward']
+            print(info['cost_reward'])
             indoor_temp.append(next_state[1])
             outdoor_temp.append(next_state[0])
             cooling_setpoint.append(info['cooling_actuator_value'])

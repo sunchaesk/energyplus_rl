@@ -322,7 +322,7 @@ class EnergyPlusRunner:
         # NOTE: self.exo_states_cache is where the cache is saved
         forecast = True
         if forecast:
-            future_steps = [2,5,8,11,14,17,]
+            future_steps = [2,5,8,11,14,17,20]
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
@@ -497,7 +497,7 @@ class EnergyPlusEnv(gym.Env):
         self.episode = -1
         self.timestep = 0
 
-        obs_len = 34
+        obs_len = 38
         low_obs = np.array(
             [-1e8] * obs_len
         )
@@ -610,7 +610,7 @@ class EnergyPlusEnv(gym.Env):
 
         #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
-        reward = np.interp(reward, [-40, 0], [-1000000, 0])
+        reward = np.interp(reward, [-40, 0], [-10000000, 0])
 
         # save the current reward as the prev cost
         self.energyplus_runner.prev_cost = reward
