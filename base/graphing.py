@@ -260,8 +260,8 @@ def caps_graphing():
 # WITH CAPS lambda_a = 3
 
 if __name__ == "__main__":
-    caps_graphing()
-    sys.exit(1)
+    # caps_graphing()
+    # sys.exit(1)
     print(len(sys.argv))
     if len(sys.argv) < 2:
         print('default')

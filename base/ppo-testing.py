@@ -111,7 +111,7 @@ def test(checkpoint_path, graph=True):
     }
 
     model = PPO_discrete(**kwargs)
-    episode = model.load('checkpoint2')
+    episode = model.load(checkpoint_path)
 
 
     print('EPISODE:', episode)
@@ -193,7 +193,7 @@ def test(checkpoint_path, graph=True):
     fig.tight_layout()
     if graph:
         plt.show()
-    return episode_reward, total_variance
+    return episode_reward, cooling_setpoint, indoor_temp, outdoor_temp, cost_signal
 
 
 def test_max():
@@ -268,26 +268,43 @@ def test_max():
     return episode_reward
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
-    episode_reward = []
-    total_variance = []
-    for i in range(20):
-        temp = test('checkpoint2.pt', graph=False)
-        episode_reward.append(temp[0])
-        total_variance.append(temp[1])
-    print('episode_reward', episode_reward)
-    print('total variance', total_variance)
-    #test_max()
-    # model_scores = []
-    # max_scores = []
-    # for i in range(40):
-    #     model_scores.append(test('./model/checkpoint.pt'))
-    #     max_scores.append(test_max())
+    #no_caps = test('checkpoint')
+    caps = test('checkpoint2')
+    sys.exit(1)
 
+    cooling_setpoint_no_caps = no_caps[1]
+    cooling_setpoint_caps = caps[1]
+    indoor_temp = no_caps[2]
+    outdoor_temp = no_caps[3]
+    cost_signals = no_caps[4]
 
-    # x = list(range(len(model_scores)))
-    # plt.plot(x, model_scores, 'r-', label='Demand Response trained model')
-    # plt.plot(x, max_scores, 'b-', label='Maximum action selection')
-    # plt.legend()
-    # plt.title('Comparison of DR vs Max action')
-    # plt.show()
+    steps_start = 110
+    steps = 1110
+    size = steps - steps_start
+    # print('##########################')
+    # print('EP reward:', episode_reward)
+    # print('##########################')
 
+    #print(episode_reward)
+
+    x = list(range(size))
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel('steps')
+    ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
+    ax1.plot(x, cooling_setpoint_caps[steps_start:steps], 'b-', label='Actuator CAPS')
+    ax1.plot(x, cooling_setpoint_no_caps[steps_start:steps], 'r-', label='Actuator No CAPS')
+    #ax1.plot(x, indoor_temp[steps_start:steps], 'g--', label='indoor temperature')
+    ax1.plot(x, outdoor_temp[steps_start:steps], 'm--', label='outdoor temperature')
+    # ax1.plot(x, indoor_temperature[steps_start:steps], 'g-', label='indoor temperature')
+    # ax1.plot(x, outdoor_temperature[steps_start:steps], 'c-', label='outdoor temperature')
+    ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('PMV [-3, 3] ')
+    ax2.plot(x, cost_signals[steps_start:steps], color='black', label='cost signal')
+    # ax2.tick_params(axis='y', labelcolor='black')
+
+    ax1.legend()
+    ax2.legend()
+    fig.tight_layout()
+    plt.show()
