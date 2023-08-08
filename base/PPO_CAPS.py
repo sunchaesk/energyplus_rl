@@ -170,13 +170,20 @@ class PPO_discrete_CAPS(object):
 
                 # CAPS J_pi_theta
                 def psi(s,obs_len):
+                    scale = 0.1
                     covariance = 5 * np.ones((obs_len, obs_len))
                     ret_tensor = []
                     for ss in s:
-                        sample = np.random.multivariate_normal(ss, covariance, size=1)
-                        ret_tensor.append(sample[0])
-                    ret_tensor = np.array(ret_tensor)
-                    return torch.tensor(ret_tensor, dtype=torch.float32)
+                        #print('ss:', ss)
+                        #sample = np.random.multivariate_normal(ss, covariance, size=1)
+                        factors = np.random.uniform(1.0 - scale, 1.0 + scale, len(ss))
+                        factors = torch.tensor(factors, dtype=torch.float32)
+                        sample = torch.mul(ss, factors)
+                        ret_tensor.append(sample)
+                    #ret_tensor = np.array(ret_tensor)
+                    #print(type(ret_tensor), type(ret_tensor[0]))
+                    #return torch.tensor(ret_tensor)
+                    return torch.stack(ret_tensor)
 
 
                 mu = torch.log(prob)

@@ -169,6 +169,7 @@ def main():
     cooling_setpoints = []
     outdoor_temperatures = []
     indoor_temperatures = []
+    thermal_comforts = []
 
 
     traj_lenth = 0
@@ -187,8 +188,11 @@ def main():
 
             s_prime, r, done, truncated, info = env.step(a)
 
+            # print('COMFORT:', info['comfort_reward'])
+
             cost_signals.append(info['cost_signal'])
             cooling_setpoints.append(info['cooling_actuator_value'])
+            thermal_comforts.append(info['comfort_reward'])
             outdoor_temperatures.append(s_prime[0])
             indoor_temperatures.append(s_prime[1])
 
@@ -211,8 +215,12 @@ def main():
             total_steps += 1
 
             if done:
+
+                # print('OOF:', sum(thermal_comforts) / len(thermal_comforts))
+                # exit(1)
+
                 '''save model'''
-                if episodes != 0 and episodes % 2 == 0:
+                if episodes != 0 and episodes % 1 == 0:
                     model.save(total_steps, 'checkpoint2')
                 graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
                 scores.append(ep_r)
@@ -225,6 +233,7 @@ def main():
                 cost_signals = []
                 indoor_temperatures = []
                 outdoor_temperatures = []
+                thermal_comforts = []
 
                 ep_r = 0
 

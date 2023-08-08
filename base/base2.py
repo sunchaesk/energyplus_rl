@@ -104,12 +104,13 @@ def parse_args() -> argparse.Namespace:
 
 class EnergyPlusRunner:
 
-    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue, meter_queue: Queue) -> None:
+    def __init__(self, episode: int, env_config: Dict[str, Any], obs_queue: Queue, act_queue: Queue, meter_queue: Queue, pmv_queue) -> None:
         self.episode = episode
         self.env_config = env_config
         self.obs_queue = obs_queue
         self.act_queue = act_queue
         self.meter_queue = meter_queue
+        self.pmv_queue = pmv_queue
 
         self.energyplus_api = EnergyPlusAPI()
         self.x: DataExchange = self.energyplus_api.exchange
@@ -141,13 +142,22 @@ class EnergyPlusRunner:
             'sky_diffuse_solar_sdr': ("Surface Outside Face Incident Sky Diffuse Solar Radiation Rate per Area", 'Window_sdr_1.unit1'),
             'site_direct_solar': ("Site Direct Solar Radiation Rate per Area", "Environment"),
             'site_horizontal_infrared': ("Site Horizontal Infrared Radiation Rate per Area", "Environment"),
+            # 'indoor_relative_humidity': ("Zone Air Relative Humidity", "living_unit1"),
+            # 'mean_radiant_temperature_living': ("Zone Mean Radiant Temperature", "living_unit1"),
         }
         self.var_handles: Dict[str, int] = {}
 
         self.meters = {
+            # "thermal_comfort": "Zone Thermal Comfort ASHRAE 55 Simple Model Summer Clothes Not Comfortable Time,living_unit1",
             "elec_cooling": "Cooling:Electricity"
         }
         self.meter_handles: Dict[str, int] = {}
+
+        self.pmv = {
+            'indoor_relative_humidity': ("Zone Air Relative Humidity", "living_unit1"),
+            'mean_radiant_temperature_living': ("Zone Mean Radiant Temperature", "living_unit1"),
+        }
+        self.pmv_handles: Dict[str, int] = {}
 
         self.actuators = {
             # supply air temperature setpoint (°C)
@@ -173,6 +183,8 @@ class EnergyPlusRunner:
             for key, var in self.variables.items():
                 self.x.request_variable(self.energyplus_state, var[0], var[1])
                 self.request_variable_complete = True
+            for key, var in self.pmv.items():
+                self.x.request_variable(self.energyplus_state, var[0], var[1])
 
         # register callback used to track simulation progress
         def _report_progress(progress: int) -> None:
@@ -191,6 +203,7 @@ class EnergyPlusRunner:
         # register callback used to collect observations
         runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_obs)
         runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_meter)
+        runtime.callback_end_zone_timestep_after_zone_reporting(self.energyplus_state, self._collect_pmv)
 
         # register callback used to send actions
         runtime.callback_after_predictor_after_hvac_managers(self.energyplus_state, self._send_actions)
@@ -240,6 +253,20 @@ class EnergyPlusRunner:
             self.env_config["idf"]
         ]
         return eplus_args
+
+    def _collect_pmv(self, state_argument) -> None:
+        if self.simulation_complete or not self._init_callback(state_argument):
+            return None
+
+        self.next_pmv = {
+            **{
+                key: self.x.get_variable_value(state_argument, handle)
+                for key, handle
+                in self.pmv_handles.items()
+            }
+        }
+        # print(self.next_pmv)
+        self.pmv_queue.put(self.next_pmv)
 
     def _collect_meter(self, state_argument) -> None:
         if self.simulation_complete or not self._init_callback(state_argument):
@@ -459,6 +486,11 @@ class EnergyPlusRunner:
                 for key, actuator in self.actuators.items()
             }
 
+            self.pmv_handles = {
+                key: self.x.get_variable_handle(state_argument, *pmv)
+                for key, pmv in self.pmv.items()
+            }
+
             for handles in [
                 self.var_handles,
                 self.meter_handles,
@@ -503,6 +535,7 @@ class EnergyPlusEnv(gym.Env):
             low=low_obs, high=hig_obs, dtype=np.float32
         )
         self.last_obs = {}
+        self.last_pmv = {}
 
         # action space: supply air temperature (100 possible values)
         self.action_space: Discrete = Discrete(61)
@@ -511,6 +544,7 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue: Optional[Queue] = None
         self.act_queue: Optional[Queue] = None
         self.meter_queue: Optional[Queue] = None
+        self.pmv_queue: Optional[Queue] = None
 
     def reset(
         self, *,
@@ -519,6 +553,7 @@ class EnergyPlusEnv(gym.Env):
     ):
         self.episode += 1
         self.last_obs = self.observation_space.sample()
+        self.last_pmv = [0,0]
 
         if self.energyplus_runner is not None:
             self.energyplus_runner.stop()
@@ -529,13 +564,15 @@ class EnergyPlusEnv(gym.Env):
         self.obs_queue = Queue(maxsize=1)
         self.act_queue = Queue(maxsize=1)
         self.meter_queue = Queue(maxsize=1)
+        self.pmv_queue = Queue(maxsize=1)
 
         self.energyplus_runner = EnergyPlusRunner(
             episode=self.episode,
             env_config=self.env_config,
             obs_queue=self.obs_queue,
             act_queue=self.act_queue,
-            meter_queue=self.meter_queue
+            meter_queue=self.meter_queue,
+            pmv_queue=self.pmv_queue
         )
         self.energyplus_runner.start()
 
@@ -546,11 +583,155 @@ class EnergyPlusEnv(gym.Env):
         try:
             obs = self.obs_queue.get()
             meter = self.meter_queue.get()
+            pmv = self.pmv_queue.get()
         except Empty:
             obs = self.last_obs
             meter = self.last_meter
+            pmv = self.last_pmv
 
         return np.array(list(obs.values()))
+
+    @staticmethod
+    def _compute_reward_thermal_comfort(tdb, tr, v, rh) -> float:
+        '''
+        @params
+        tdb: dry bulb air temperature
+        tr: mean radiant temperature
+        v: used to calculate v_relative: air velocity
+        rh: relative humidity
+        met: set as a constant value of 1.4
+        clo: set as a constant value of 0.5
+        -> clo_relative is pre-computed ->
+
+        @return PPD
+        '''
+        def pmv_ppd_optimized(tdb, tr, vr, rh, met, clo, wme):
+            pa = rh * 10 * math.exp(16.6536 - 4030.183 / (tdb + 235))
+
+            icl = 0.155 * clo  # thermal insulation of the clothing in M2K/W
+            m = met * 58.15  # metabolic rate in W/M2
+            w = wme * 58.15  # external work in W/M2
+            mw = m - w  # internal heat production in the human body
+            # calculation of the clothing area factor
+            if icl <= 0.078:
+                f_cl = 1 + (1.29 * icl)  # ratio of surface clothed body over nude body
+            else:
+                f_cl = 1.05 + (0.645 * icl)
+
+            # heat transfer coefficient by forced convection
+            hcf = 12.1 * math.sqrt(vr)
+            hc = hcf  # initialize variable
+            taa = tdb + 273
+            tra = tr + 273
+            t_cla = taa + (35.5 - tdb) / (3.5 * icl + 0.1)
+
+            p1 = icl * f_cl
+            p2 = p1 * 3.96
+            p3 = p1 * 100
+            p4 = p1 * taa
+            p5 = (308.7 - 0.028 * mw) + (p2 * (tra / 100.0) ** 4)
+            xn = t_cla / 100
+            xf = t_cla / 50
+            eps = 0.00015
+
+            n = 0
+            while abs(xn - xf) > eps:
+                xf = (xf + xn) / 2
+                hcn = 2.38 * abs(100.0 * xf - taa) ** 0.25
+                if hcf > hcn:
+                    hc = hcf
+                else:
+                    hc = hcn
+                    xn = (p5 + p4 * hc - p2 * xf**4) / (100 + p3 * hc)
+                    n += 1
+                if n > 150:
+                    raise StopIteration("Max iterations exceeded")
+
+            tcl = 100 * xn - 273
+
+            # heat loss diff. through skin
+            hl1 = 3.05 * 0.001 * (5733 - (6.99 * mw) - pa)
+            # heat loss by sweating
+            if mw > 58.15:
+                hl2 = 0.42 * (mw - 58.15)
+            else:
+                hl2 = 0
+                # latent respiration heat loss
+            hl3 = 1.7 * 0.00001 * m * (5867 - pa)
+            # dry respiration heat loss
+            hl4 = 0.0014 * m * (34 - tdb)
+            # heat loss by radiation
+            hl5 = 3.96 * f_cl * (xn**4 - (tra / 100.0) ** 4)
+            # heat loss by convection
+            hl6 = f_cl * hc * (tcl - tdb)
+
+            ts = 0.303 * math.exp(-0.036 * m) + 0.028
+            _pmv = ts * (mw - hl1 - hl2 - hl3 - hl4 - hl5 - hl6)
+
+            return _pmv
+
+
+        def v_relative(v, met):
+            """Estimates the relative air speed which combines the average air speed of
+            the space plus the relative air speed caused by the body movement. Vag is assumed to
+            be 0 for metabolic rates equal and lower than 1 met and otherwise equal to
+            Vag = 0.3 (M – 1) (m/s)
+
+            Parameters
+            ----------
+            v : float or array-like
+            air speed measured by the sensor, [m/s]
+            met : float
+            metabolic rate, [met]
+
+            Returns
+            -------
+            vr  : float or array-like
+            relative air speed, [m/s]
+            """
+            return np.where(met > 1, np.around(v + 0.3 * (met - 1), 3), v)
+
+        def clo_dynamic(clo, met, standard="ASHRAE"):
+            """Estimates the dynamic clothing insulation of a moving occupant. The activity as
+            well as the air speed modify the insulation characteristics of the clothing and the
+            adjacent air layer. Consequently, the ISO 7730 states that the clothing insulation
+            shall be corrected [2]_. The ASHRAE 55 Standard corrects for the effect
+            of the body movement for met equal or higher than 1.2 met using the equation
+            clo = Icl × (0.6 + 0.4/met)
+
+            Parameters
+            ----------
+            clo : float or array-like
+            clothing insulation, [clo]
+            met : float or array-like
+            metabolic rate, [met]
+            standard: str (default="ASHRAE")
+            - If "ASHRAE", uses Equation provided in Section 5.2.2.2 of ASHRAE 55 2020
+
+            Returns
+            -------
+            clo : float or array-like
+            dynamic clothing insulation, [clo]
+            """
+            standard = standard.lower()
+            if standard not in ["ashrae", "iso"]:
+                raise ValueError(
+                    "only the ISO 7730 and ASHRAE 55 2020 models have been implemented"
+                )
+
+            if standard == "ashrae":
+                return np.where(met > 1.2, np.around(clo * (0.6 + 0.4 / met), 3), clo)
+            else:
+                return np.where(met > 1, np.around(clo * (0.6 + 0.4 / met), 3), clo)
+
+
+        #
+        clo_dynamic = 0.443 # precomputed with the clo value of 0.5 (clo_dynamic(0.5, 1.4))
+        v_rel = v_relative(v, 1.4)
+        #print('V_REL', v_rel)
+        pmv = pmv_ppd_optimized(tdb, tr, 0.1, rh, 1.4, clo_dynamic, 0)
+        # now calc and return ppd
+        return pmv
 
     def step(self, action):
         self.timestep += 1
@@ -567,6 +748,7 @@ class EnergyPlusEnv(gym.Env):
             done = True
             obs = self.last_obs
             meter = self.last_meter
+            pmv = self.last_pmv
         else:
             # rescale agent decision to actuator range
             sat_spt_value = self._rescale(
@@ -587,10 +769,14 @@ class EnergyPlusEnv(gym.Env):
                 self.act_queue.put(sat_spt_value, timeout=timeout)
                 self.last_obs = obs = self.obs_queue.get(timeout=timeout)
                 self.last_meter = meter = self.meter_queue.get(timeout=timeout)
+                self.last_pmv = pmv = self.pmv_queue.get(timeout=timeout)
             except (Full, Empty):
                 done = True
                 obs = self.last_obs
                 meter = self.last_meter
+                pmv = self.last_pmv
+
+        print('pmv:', pmv)
 
         # time inside simulation data
         hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)
@@ -602,6 +788,10 @@ class EnergyPlusEnv(gym.Env):
         reward_kilowatts = self._compute_reward_energy_kilowatts(obs, meter)
         reward_cost = self._compute_reward_cost(obs, hour, minute, day_of_week, reward_kilowatts)
         reward_cost_signal = self._compute_cost_signal(obs, hour, minute, day_of_week)
+        reward_comfort = self._compute_reward_thermal_comfort(obs['indoor_temp_living'],
+                                                              pmv['mean_radiant_temperature_living'],
+                                                              0.1,
+                                                              pmv['indoor_relative_humidity'])
 
         #reward = max(0, reward_cost + 33.351096631349364)
         reward = reward_cost
@@ -616,7 +806,8 @@ class EnergyPlusEnv(gym.Env):
         obs_vec = np.array(list(obs.values()))
         return obs_vec, reward, done, False, {'cooling_actuator_value': cooling_actuator_value,
                                               'cost_signal': reward_cost_signal,
-                                              'cost_reward': reward_cost}
+                                              'cost_reward': reward_cost,
+                                              'comfort_reward': reward_comfort}
 
     def render(self, mode="human"):
         pass

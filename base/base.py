@@ -298,25 +298,25 @@ class EnergyPlusRunner:
         # self.next_obs['prev_actuator_value'] = self.prev_actuator_value
 
         # hour of week observation value
-        b_hour_of_week_obs = True
+        b_hour_of_week_obs = False
         if b_hour_of_week_obs:
             hour_of_week = (24 * (day_of_week - 1)) + hour
             self.next_obs['hour_of_week'] = hour_of_week
 
         # cost_rate_signal
-        if day_of_week in [1, 7]:
-            # weekend pricing
-            if hour in range(0, 7) or hour in range(23, 24 + 1): # plus one is to include 7
-                self.next_obs['cost_rate'] = 2.4
-            elif hour in range(7, 23):
-                self.next_obs['cost_rate'] = 7.4
-        else:
-            if hour in range(0, 7) or hour in range(23, 24 + 1):
-                self.next_obs['cost_rate'] = 2.4
-            elif hour in range(7, 16) or hour in range(21, 23):
-                self.next_obs['cost_rate'] = 10.2
-            elif hour in range(16, 21):
-                self.next_obs['cost_rate'] = 24.0
+            if day_of_week in [1, 7]:
+                # weekend pricing
+                if hour in range(0, 7) or hour in range(23, 24 + 1): # plus one is to include 7
+                    self.next_obs['cost_rate'] = 2.4
+                elif hour in range(7, 23):
+                    self.next_obs['cost_rate'] = 7.4
+            else:
+                if hour in range(0, 7) or hour in range(23, 24 + 1):
+                    self.next_obs['cost_rate'] = 2.4
+                elif hour in range(7, 16) or hour in range(21, 23):
+                    self.next_obs['cost_rate'] = 10.2
+                elif hour in range(16, 21):
+                    self.next_obs['cost_rate'] = 24.0
 
         # deterministic forecast of exogen states
         # NOTE: self.exo_states_cache is where the cache is saved
