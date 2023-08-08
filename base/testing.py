@@ -221,11 +221,11 @@ def test(checkpoint_path, graph=True):
 
     # computing thermal comfort values
     avg_thermal_comfort = sum(thermal_comforts) / (len(thermal_comforts) + 1)
-    return episode_reward, cooling_setpoint, indoor_temp, outdoor_temp, cost_signal, total_variance, avg_thermal_comfort
+    return episode_reward, cooling_setpoint, indoor_temp, outdoor_temp, cost_signal, total_variance, avg_thermal_comfort, sum(thermal_comforts)
 
 
 def test_max():
-    env = base.EnergyPlusEnv(default_args)
+    env = base2.EnergyPlusEnv(default_args)
 
     steps = 0
     episode_reward = 0
@@ -233,6 +233,8 @@ def test_max():
     cost_signal = []
     indoor_temp = []
     outdoor_temp = []
+
+    thermal_comforts = []
 
     cost_reward_sum = 0
 
@@ -254,6 +256,7 @@ def test_max():
             outdoor_temp.append(next_state[0])
             cooling_setpoint.append(info['cooling_actuator_value'])
             cost_signal.append(info['cost_signal'])
+            thermal_comforts.append(info['comfort_reward'])
             # episode_reward += info['energy_reward']
             # cooling_actuator_value.append(info['actuators'][0])
             # heating_actuator_value.append(info['actuators'][1])
@@ -293,15 +296,29 @@ def test_max():
     # ax2.legend()
     # fig.tight_layout()
     #plt.show()
-    return episode_reward
+    print('thermal_comforts', sum(thermal_comforts))
+    print('avg thermal comfort:', (sum(thermal_comforts) / (len(thermal_comforts) + 1)))
+    return episode_reward, sum(thermal_comforts), (sum(thermal_comforts) / (len(thermal_comforts) +1))
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
+    test_max()
 
-    for i in range(40):
-        caps = test('checkpoint2')
+    # f = open('./result/caps.txt', 'a')
+    # f.write('cost_score | total_variance | avg_thermal_comfort | total_PMV\n')
+    # for i in range(40):
+    #     caps = test('checkpoint2', graph=False)
+    #     f.write(str(caps[0]) + ' ' + str(caps[5]) + ' ' + str(caps[6]) + ' ' + str(caps[7]) + '\n')
+    # f.close()
 
-    for i in range(40):
-        mmm = test_max()
+    # print("MAXXXXX")
+
+    # f = open('./result/max.txt', 'a')
+    # for i in range(40):
+    #     mmm = test_max()
+    #     f.write(str(mmm) + '\n')
+    # f.close()
+
+    # print('DONNNEEEE')
 
     # no_caps = test('checkpoint')
     # caps = test('checkpoint2')

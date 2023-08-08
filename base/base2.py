@@ -776,7 +776,6 @@ class EnergyPlusEnv(gym.Env):
                 meter = self.last_meter
                 pmv = self.last_pmv
 
-        print('pmv:', pmv)
 
         # time inside simulation data
         hour = self.energyplus_runner.x.hour(self.energyplus_runner.energyplus_state)

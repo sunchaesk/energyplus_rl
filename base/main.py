@@ -168,9 +168,7 @@ def main():
     cooling_setpoints = []
     outdoor_temperatures = []
     indoor_temperatures = []
-
-    b4200 = False
-    b4000 = False
+    thermal_comforts = []
 
     traj_lenth = 0
     total_steps = 0
@@ -193,6 +191,7 @@ def main():
             cooling_setpoints.append(info['cooling_actuator_value'])
             outdoor_temperatures.append(s_prime[0])
             indoor_temperatures.append(s_prime[1])
+            thermal_comforts.append(info['comfort_reward'])
 
             dw = False
             if episode_steps != 1:
@@ -216,16 +215,7 @@ def main():
                 if episodes != 0 and episodes % 2 == 0:
                     model.save(total_steps, 'checkpoint')
 
-                if not b4200:
-                    if ep_r < 4200:
-                        model.save(episodes, 'ppo-save4200')
-                        b4200 = True
-                if not b4000:
-                    if ep_r < 4000:
-                        model.save(episodes, 'ppo-save4200')
-                        b4000 = True
-
-                graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
+                #graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
                 scores.append(ep_r)
                 episodes += 1
                 episode_steps = 0
@@ -237,6 +227,7 @@ def main():
                 cost_signals = []
                 indoor_temperatures = []
                 outdoor_temperatures = []
+                thermal_comforts = []
 
                 ep_r = 0
 
