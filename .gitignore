@@ -1,0 +1,12 @@
+__pycache__
+./agent/output/
+./__pycache__
+
+agent/output/
+agent/logs/
+
+mask-agent/output/
+mask-agent/logs/
+
+base/output/
+base/logs/
