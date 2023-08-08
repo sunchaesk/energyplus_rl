@@ -9,6 +9,7 @@ import json
 from collections import deque, namedtuple
 
 import base as base
+import base2 as base2
 # import base_pmv as base
 
 import torch
@@ -71,9 +72,29 @@ opt = parser.parse_args()
 print(opt)
 
 
+def test_caps(checkpoint_path, graph=True):
+    env = base2.EnergyPlusEnv(default_args)
+    state_dim = env.observation_space.shape[0]
+    action_dim = env.action_space.n
+
+    T_horizon = opt.T_horizon
+    render = opt.render
+    Loadmodel = opt.Loadmodel
+    ModelIdex = opt.ModelIdex #which model to load
+    Max_train_steps = opt.Max_train_steps #in steps
+    eval_interval = opt.eval_interval #in steps
+    save_interval = opt.save_interval #in steps
+
+    seed = opt.seed
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+
+    print('Env: Eplus','  state_dim:',state_dim,'  action_dim:',action_dim,'   Random Seed:',seed)
+    print('\n')
+
 def test(checkpoint_path, graph=True):
     #env = gym.make(EnvName[EnvIdex])
-    env = base.EnergyPlusEnv(default_args)
+    env = base2.EnergyPlusEnv(default_args)
     #eval_env = gym.make(EnvName[EnvIdex])
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
@@ -125,6 +146,8 @@ def test(checkpoint_path, graph=True):
     indoor_temp = []
     outdoor_temp = []
 
+    thermal_comforts = []
+
     cost_reward_sum = 0
 
     for i_episode in range(1):
@@ -146,6 +169,7 @@ def test(checkpoint_path, graph=True):
             outdoor_temp.append(next_state[0])
             cooling_setpoint.append(info['cooling_actuator_value'])
             cost_signal.append(info['cost_signal'])
+            thermal_comforts.append(info['comfort_reward'])
             # episode_reward += info['energy_reward']
             # cooling_actuator_value.append(info['actuators'][0])
             # heating_actuator_value.append(info['actuators'][1])
@@ -194,7 +218,10 @@ def test(checkpoint_path, graph=True):
     fig.tight_layout()
     if graph:
         plt.show()
-    return episode_reward, cooling_setpoint, indoor_temp, outdoor_temp, cost_signal
+
+    # computing thermal comfort values
+    avg_thermal_comfort = sum(thermal_comforts) / (len(thermal_comforts) + 1)
+    return episode_reward, cooling_setpoint, indoor_temp, outdoor_temp, cost_signal, total_variance, avg_thermal_comfort
 
 
 def test_max():
@@ -269,43 +296,49 @@ def test_max():
     return episode_reward
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
-    #no_caps = test('checkpoint')
-    caps = test('checkpoint2')
-    sys.exit(1)
 
-    cooling_setpoint_no_caps = no_caps[1]
-    cooling_setpoint_caps = caps[1]
-    indoor_temp = no_caps[2]
-    outdoor_temp = no_caps[3]
-    cost_signals = no_caps[4]
+    for i in range(40):
+        caps = test('checkpoint2')
 
-    steps_start = 110
-    steps = 1110
-    size = steps - steps_start
-    # print('##########################')
-    # print('EP reward:', episode_reward)
-    # print('##########################')
+    for i in range(40):
+        mmm = test_max()
 
-    #print(episode_reward)
+    # no_caps = test('checkpoint')
+    # caps = test('checkpoint2')
 
-    x = list(range(size))
-    fig, ax1 = plt.subplots()
-    ax1.set_xlabel('steps')
-    ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
-    ax1.plot(x, cooling_setpoint_caps[steps_start:steps], 'b-', label='Actuator CAPS')
-    ax1.plot(x, cooling_setpoint_no_caps[steps_start:steps], 'r-', label='Actuator No CAPS')
-    #ax1.plot(x, indoor_temp[steps_start:steps], 'g--', label='indoor temperature')
-    ax1.plot(x, outdoor_temp[steps_start:steps], 'm--', label='outdoor temperature')
-    # ax1.plot(x, indoor_temperature[steps_start:steps], 'g-', label='indoor temperature')
-    # ax1.plot(x, outdoor_temperature[steps_start:steps], 'c-', label='outdoor temperature')
-    ax1.tick_params(axis='y', labelcolor='tab:blue')
+    # cooling_setpoint_no_caps = no_caps[1]
+    # cooling_setpoint_caps = caps[1]
+    # indoor_temp = no_caps[2]
+    # outdoor_temp = no_caps[3]
+    # cost_signals = no_caps[4]
 
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('PMV [-3, 3] ')
-    ax2.plot(x, cost_signals[steps_start:steps], color='black', label='cost signal')
-    # ax2.tick_params(axis='y', labelcolor='black')
+    # steps_start = 110
+    # steps = 1110
+    # size = steps - steps_start
+    # # print('##########################')
+    # # print('EP reward:', episode_reward)
+    # # print('##########################')
 
-    ax1.legend()
-    ax2.legend()
-    fig.tight_layout()
-    plt.show()
+    # #print(episode_reward)
+
+    # x = list(range(size))
+    # fig, ax1 = plt.subplots()
+    # ax1.set_xlabel('steps')
+    # ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
+    # ax1.plot(x, cooling_setpoint_caps[steps_start:steps], 'b-', label='Actuator CAPS')
+    # ax1.plot(x, cooling_setpoint_no_caps[steps_start:steps], 'r-', label='Actuator No CAPS')
+    # #ax1.plot(x, indoor_temp[steps_start:steps], 'g--', label='indoor temperature')
+    # ax1.plot(x, outdoor_temp[steps_start:steps], 'm--', label='outdoor temperature')
+    # # ax1.plot(x, indoor_temperature[steps_start:steps], 'g-', label='indoor temperature')
+    # # ax1.plot(x, outdoor_temperature[steps_start:steps], 'c-', label='outdoor temperature')
+    # ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+    # ax2 = ax1.twinx()
+    # ax2.set_ylabel('PMV [-3, 3] ')
+    # ax2.plot(x, cost_signals[steps_start:steps], color='black', label='cost signal')
+    # # ax2.tick_params(axis='y', labelcolor='black')
+
+    # ax1.legend()
+    # ax2.legend()
+    # fig.tight_layout()
+    # plt.show()
