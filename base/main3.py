@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import gym
 import torch
 import numpy as np
-from PPO import device, PPO_discrete
+#from PPO import device, PPO_discrete
+from PPO_CAPS import device, PPO_discrete_CAPS
 from torch.utils.tensorboard import SummaryWriter
 import os, shutil
 from datetime import datetime
@@ -25,34 +26,6 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
-# '''Hyperparameter Setting'''
-# parser = argparse.ArgumentParser()
-# parser.add_argument('--EnvIdex', type=int, default=0, help='CP-v1, LLd-v2')
-# parser.add_argument('--write', type=str2bool, default=True, help='Use SummaryWriter to record the training')
-# parser.add_argument('--render', type=str2bool, default=False, help='Render or Not')
-# parser.add_argument('--Loadmodel', type=str2bool, default=True, help='Load pretrained model or Not')
-# parser.add_argument('--ModelIdex', type=int, default=300000, help='which model to load')
-
-# parser.add_argument('--seed', type=int, default=209, help='random seed')
-# parser.add_argument('--T_horizon', type=int, default=1150, help='lenth of long trajectory')
-# parser.add_argument('--Max_train_steps', type=int, default=5e25, help='Max training steps')
-# parser.add_argument('--save_interval', type=int, default=1e5, help='Model saving interval, in steps.')
-# parser.add_argument('--eval_interval', type=int, default=5e3, help='Model evaluating interval, in steps.')
-
-# parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
-# parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
-# parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
-# parser.add_argument('--K_epochs', type=int, default=50, help='PPO update times')
-# parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
-# parser.add_argument('--lr', type=float, default=5e-4, help='Learning rate')
-# parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
-# parser.add_argument('--batch_size', type=int, default=1000, help='lenth of sliced trajectory')
-# parser.add_argument('--entropy_coef', type=float, default=0.0005, help='Entropy coefficient of Actor')
-# parser.add_argument('--entropy_coef_decay', type=float, default=0.9995, help='Decay rate of entropy_coef')
-# parser.add_argument('--adv_normalization', type=str2bool, default=False, help='Advantage normalization')
-# opt = parser.parse_args()
-# print(opt)
-
 '''Hyperparameter Setting'''
 parser = argparse.ArgumentParser()
 parser.add_argument('--EnvIdex', type=int, default=0, help='CP-v1, LLd-v2')
@@ -70,16 +43,44 @@ parser.add_argument('--eval_interval', type=int, default=5e3, help='Model evalua
 parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
 parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
 parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
-parser.add_argument('--K_epochs', type=int, default=50, help='PPO update times')
-parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
-parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
-parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
-parser.add_argument('--batch_size', type=int, default=250, help='lenth of sliced trajectory')
-parser.add_argument('--entropy_coef', type=float, default=0.001, help='Entropy coefficient of Actor')
-parser.add_argument('--entropy_coef_decay', type=float, default=0.995, help='Decay rate of entropy_coef')
+parser.add_argument('--K_epochs', type=int, default=100, help='PPO update times')
+parser.add_argument('--net_width', type=int, default=150, help='Hidden net width')
+parser.add_argument('--lr', type=float, default=2e-4, help='Learning rate')
+parser.add_argument('--l2_reg', type=float, default=0.01, help='L2 regulization coefficient for Critic')
+parser.add_argument('--batch_size', type=int, default=200, help='lenth of sliced trajectory')
+parser.add_argument('--entropy_coef', type=float, default=0.0005, help='Entropy coefficient of Actor')
+parser.add_argument('--entropy_coef_decay', type=float, default=0.9995, help='Decay rate of entropy_coef')
 parser.add_argument('--adv_normalization', type=str2bool, default=False, help='Advantage normalization')
 opt = parser.parse_args()
 print(opt)
+
+'''Hyperparameter Setting Tried for training continuation'''
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--EnvIdex', type=int, default=0, help='CP-v1, LLd-v2')
+# parser.add_argument('--write', type=str2bool, default=True, help='Use SummaryWriter to record the training')
+# parser.add_argument('--render', type=str2bool, default=False, help='Render or Not')
+# parser.add_argument('--Loadmodel', type=str2bool, default=True, help='Load pretrained model or Not')
+# parser.add_argument('--ModelIdex', type=int, default=300000, help='which model to load')
+
+# parser.add_argument('--seed', type=int, default=209, help='random seed')
+# parser.add_argument('--T_horizon', type=int, default=1253, help='lenth of long trajectory')
+# parser.add_argument('--Max_train_steps', type=int, default=5e25, help='Max training steps')
+# parser.add_argument('--save_interval', type=int, default=1e5, help='Model saving interval, in steps.')
+# parser.add_argument('--eval_interval', type=int, default=5e3, help='Model evaluating interval, in steps.')
+
+# parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
+# parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
+# parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
+# parser.add_argument('--K_epochs', type=int, default=300, help='PPO update times')
+# parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
+# parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate')
+# parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
+# parser.add_argument('--batch_size', type=int, default=500, help='lenth of sliced trajectory')
+# parser.add_argument('--entropy_coef', type=float, default=0.00000, help='Entropy coefficient of Actor')
+# parser.add_argument('--entropy_coef_decay', type=float, default=0.0, help='Decay rate of entropy_coef')
+# parser.add_argument('--adv_normalization', type=str2bool, default=False, help='Advantage normalization')
+# opt = parser.parse_args()
+# print(opt)
 
 # next to try
 # higher K_epochs
@@ -153,22 +154,23 @@ def main():
         "entropy_coef":opt.entropy_coef,  #hard env needs large value
         "adv_normalization":opt.adv_normalization,
         "entropy_coef_decay": opt.entropy_coef_decay,
+        "lambda_a": 0,
+        "lambda_s": 0,
     }
 
     if not os.path.exists('model'): os.mkdir('model')
-    model = PPO_discrete(**kwargs)
+    model = PPO_discrete_CAPS(**kwargs)
     Loadmodel = True
-    #if Loadmodel: model.load('258111417-200/ppo-save3920')
     if Loadmodel: model.load(None)
 
     scores = []
     episodes = 0
-    episode_steps = 0
     cost_signals = []
     cooling_setpoints = []
     outdoor_temperatures = []
     indoor_temperatures = []
     thermal_comforts = []
+
 
     traj_lenth = 0
     total_steps = 0
@@ -180,30 +182,32 @@ def main():
             #print(total_steps)
             traj_lenth += 1
             steps += 1
-            episode_steps += 1
 
             a, pi_a = model.select_action(torch.from_numpy(s).float().to(device))  #stochastic policy
             # a, pi_a = model.evaluate(torch.from_numpy(s).float().to(device))  #deterministic policy
 
             s_prime, r, done, truncated, info = env.step(a)
 
+            # print('COMFORT:', info['comfort_reward'])
+
             cost_signals.append(info['cost_signal'])
             cooling_setpoints.append(info['cooling_actuator_value'])
+            thermal_comforts.append(info['comfort_reward'])
             outdoor_temperatures.append(s_prime[0])
             indoor_temperatures.append(s_prime[1])
-            thermal_comforts.append(info['comfort_reward'])
 
             dw = False
-            if episode_steps != 1:
-                model.put_data((s, a, r, s_prime, pi_a, done, dw))
+            model.put_data((s, a, r, s_prime, pi_a, done, dw))
             s = s_prime
             ep_r += info['cost_reward']
 
             if traj_lenth % T_horizon == 0:
                 a_loss, c_loss, entropy = model.train()
-                with open('./logs/a_loss.txt','a') as loss_handle:
+                open('./logs/a_loss2.txt', 'w').close()
+                with open('./logs/a_loss2.txt','a') as loss_handle:
                     loss_handle.write(str(a_loss) + '\n')
-                with open('./logs/c_loss.txt', 'a') as loss_handle:
+                open('./logs/c_loss2.txt', 'w').close()
+                with open('./logs/c_loss2.txt', 'a') as loss_handle:
                     loss_handle.write(str(c_loss) + '\n')
                 traj_lenth = 0
 
@@ -211,14 +215,16 @@ def main():
             total_steps += 1
 
             if done:
-                '''save model'''
-                if episodes != 0 and episodes % 2 == 0:
-                    model.save(total_steps, 'checkpoint')
 
-                #graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
+                # print('OOF:', sum(thermal_comforts) / len(thermal_comforts))
+                # exit(1)
+
+                '''save model'''
+                if episodes != 0 and episodes % 1 == 0:
+                    model.save(total_steps, 'checkpoint')
+                graphing(cooling_setpoints, cost_signals, outdoor_temperatures, indoor_temperatures, episodes)
                 scores.append(ep_r)
                 episodes += 1
-                episode_steps = 0
                 f_name = './logs/scores.txt'
                 with open(f_name, 'a') as scores_f:
                     scores_f.write(str(ep_r) + '\n')

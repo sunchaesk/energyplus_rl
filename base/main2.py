@@ -45,7 +45,7 @@ parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
 parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
 parser.add_argument('--K_epochs', type=int, default=50, help='PPO update times')
 parser.add_argument('--net_width', type=int, default=200, help='Hidden net width')
-parser.add_argument('--lr', type=float, default=5e-4, help='Learning rate')
+parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
 parser.add_argument('--l2_reg', type=float, default=0, help='L2 regulization coefficient for Critic')
 parser.add_argument('--batch_size', type=int, default=500, help='lenth of sliced trajectory')
 parser.add_argument('--entropy_coef', type=float, default=0.0005, help='Entropy coefficient of Actor')
@@ -154,14 +154,14 @@ def main():
         "entropy_coef":opt.entropy_coef,  #hard env needs large value
         "adv_normalization":opt.adv_normalization,
         "entropy_coef_decay": opt.entropy_coef_decay,
-        "lambda_a": 1,
-        "lambda_s": 2,
+        "lambda_a": 100,
+        "lambda_s": 1,
     }
 
     if not os.path.exists('model'): os.mkdir('model')
     model = PPO_discrete_CAPS(**kwargs)
-    Loadmodel = True
-    if Loadmodel: model.load(None)
+    Loadmodel = False
+    if Loadmodel: model.load('checkpoint2')
 
     scores = []
     episodes = 0

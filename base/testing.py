@@ -5,6 +5,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import json
 from collections import deque, namedtuple
 
@@ -71,6 +72,33 @@ parser.add_argument('--adv_normalization', type=str2bool, default=False, help='A
 opt = parser.parse_args()
 print(opt)
 
+# '''Hyperparameter Setting'''
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--EnvIdex', type=int, default=0, help='CP-v1, LLd-v2')
+# parser.add_argument('--write', type=str2bool, default=True, help='Use SummaryWriter to record the training')
+# parser.add_argument('--render', type=str2bool, default=False, help='Render or Not')
+# parser.add_argument('--Loadmodel', type=str2bool, default=True, help='Load pretrained model or Not')
+# parser.add_argument('--ModelIdex', type=int, default=300000, help='which model to load')
+
+# parser.add_argument('--seed', type=int, default=209, help='random seed')
+# parser.add_argument('--T_horizon', type=int, default=1253, help='lenth of long trajectory')
+# parser.add_argument('--Max_train_steps', type=int, default=5e25, help='Max training steps')
+# parser.add_argument('--save_interval', type=int, default=1e5, help='Model saving interval, in steps.')
+# parser.add_argument('--eval_interval', type=int, default=5e3, help='Model evaluating interval, in steps.')
+
+# parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
+# parser.add_argument('--lambd', type=float, default=0.99, help='GAE Factor')
+# parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
+# parser.add_argument('--K_epochs', type=int, default=100, help='PPO update times')
+# parser.add_argument('--net_width', type=int, default=150, help='Hidden net width')
+# parser.add_argument('--lr', type=float, default=2e-4, help='Learning rate')
+# parser.add_argument('--l2_reg', type=float, default=0.01, help='L2 regulization coefficient for Critic')
+# parser.add_argument('--batch_size', type=int, default=200, help='lenth of sliced trajectory')
+# parser.add_argument('--entropy_coef', type=float, default=0.0005, help='Entropy coefficient of Actor')
+# parser.add_argument('--entropy_coef_decay', type=float, default=0.9995, help='Decay rate of entropy_coef')
+# parser.add_argument('--adv_normalization', type=str2bool, default=False, help='Advantage normalization')
+# opt = parser.parse_args()
+# print(opt)
 
 def test_caps(checkpoint_path, graph=True):
     env = base2.EnergyPlusEnv(default_args)
@@ -185,43 +213,43 @@ def test(checkpoint_path, graph=True):
     for i in range(1, len(cooling_setpoint)):
         total_variance += abs(cooling_setpoint[i] - cooling_setpoint[i - 1])
     print('TOTAL VARIANCE', total_variance)
-    # INFO w/out CAPS
-    #
+    print('TOTAL COST', episode_reward)
 
-    steps_start = 110
-    steps = 1110
-    size = steps - steps_start
-    print('##########################')
-    print('EP reward:', episode_reward)
-    print('##########################')
+    fig, ax1 = plt.subplots(figsize=(20,8))
 
-    print(episode_reward)
+    x_vals = list(range(len(cost_signal)))
 
-    x = list(range(size))
-    fig, ax1 = plt.subplots()
-    ax1.set_xlabel('steps')
-    ax1.set_ylabel('Actuators Setpoint Temperature (*C)', color='tab:blue')
-    ax1.plot(x, cooling_setpoint[steps_start:steps], 'b-', label='cooling actuator value')
-    ax1.plot(x, indoor_temp[steps_start:steps], 'g--', label='indoor temperature')
-    ax1.plot(x, outdoor_temp[steps_start:steps], 'm--', label='outdoor temperature')
-    # ax1.plot(x, indoor_temperature[steps_start:steps], 'g-', label='indoor temperature')
-    # ax1.plot(x, outdoor_temperature[steps_start:steps], 'c-', label='outdoor temperature')
-    ax1.tick_params(axis='y', labelcolor='tab:blue')
+    sns.lineplot(x=x_vals, y=indoor_temp, ax=ax1, color='g', label='Indoor Temperature (℃)')
+    sns.lineplot(x=x_vals, y=cooling_setpoint, ax=ax1, color='blue', label='Cooling Actuator Setpoint (℃)')
+    sns.lineplot(x=x_vals, y=outdoor_temp, ax=ax1, color='r', label='Outdoor Temperature (℃)')
+    ax1.set_ylabel('Temperature (℃)', color='blue')
+    ax1.tick_params(axis='y', labelcolor='blue')
 
     ax2 = ax1.twinx()
-    ax2.set_ylabel('PMV [-3, 3] ')
-    ax2.plot(x, cost_signal[steps_start:steps], color='black', label='cost signal')
-    # ax2.tick_params(axis='y', labelcolor='black')
 
-    ax1.legend()
-    ax2.legend()
-    fig.tight_layout()
-    if graph:
-        plt.show()
+    #sns.barplot(x=x_vals, y=cost_signal, ax=ax2, color='black', )
+    sns.lineplot(x=x_vals, y=cost_signal, ax=ax2, color='black', label='Time of Usage Price Signal (¢)')
+    ax2.set_ylabel('Cost (¢)', color='black')
+    ax2.tick_params(axis='y', labelcolor='black')
+
+
+    # common x label
+    #plt.xlabel('Timesteps of 10 minute interval (n)')
+    ax1.set_xlabel('Timesteps of 10 minute intervals (n)')
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(loc='upper left')
+
+    # indoor, setpoint temperature, cost_signals,
+
+    plt.title('RL test run trajectory (6/21 ~ 6/28)')
+    plt.savefig('caps_traj.png', dpi=700, bbox_inches='tight')
+    plt.show()
 
     # computing thermal comfort values
-    avg_thermal_comfort = sum(thermal_comforts) / (len(thermal_comforts) + 1)
-    return episode_reward, cooling_setpoint, indoor_temp, outdoor_temp, cost_signal, total_variance, avg_thermal_comfort, sum(thermal_comforts)
+    # avg_thermal_comfort = sum(thermal_comforts) / (len(thermal_comforts) + 1)
+    # return episode_reward, cooling_setpoint, indoor_temp, outdoor_temp, cost_signal, total_variance, avg_thermal_comfort, sum(thermal_comforts)
 
 
 def test_max():
@@ -301,7 +329,9 @@ def test_max():
     return episode_reward, sum(thermal_comforts), (sum(thermal_comforts) / (len(thermal_comforts) +1))
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
-    test_max()
+    test('checkpoint2')
+    #test_max()
+
 
     # f = open('./result/caps.txt', 'a')
     # f.write('cost_score | total_variance | avg_thermal_comfort | total_PMV\n')

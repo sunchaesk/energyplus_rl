@@ -346,6 +346,7 @@ class EnergyPlusRunner:
         forecast = True
         if forecast:
             future_steps = [2,5,8,11,14,17,20,]
+            # future_steps = list(range(2,23))
             future_data = []
 
             minute = 60 if round(minute, -1) > 60 else round(minute, -1)
