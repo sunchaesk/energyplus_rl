@@ -222,20 +222,20 @@ def test(checkpoint_path, graph=True):
     sns.lineplot(x=x_vals, y=indoor_temp, ax=ax1, color='g', label='Indoor Temperature (℃)')
     sns.lineplot(x=x_vals, y=cooling_setpoint, ax=ax1, color='blue', label='Cooling Actuator Setpoint (℃)')
     sns.lineplot(x=x_vals, y=outdoor_temp, ax=ax1, color='r', label='Outdoor Temperature (℃)')
-    ax1.set_ylabel('Temperature (℃)', color='blue')
+    ax1.set_ylabel('Temperature (℃)', color='blue', fontsize=20)
     ax1.tick_params(axis='y', labelcolor='blue')
 
     ax2 = ax1.twinx()
 
     #sns.barplot(x=x_vals, y=cost_signal, ax=ax2, color='black', )
     sns.lineplot(x=x_vals, y=cost_signal, ax=ax2, color='black', label='Time of Usage Price Signal (¢)')
-    ax2.set_ylabel('Cost (¢)', color='black')
+    ax2.set_ylabel('Cost (¢)', color='black', fontsize=20)
     ax2.tick_params(axis='y', labelcolor='black')
 
 
     # common x label
     #plt.xlabel('Timesteps of 10 minute interval (n)')
-    ax1.set_xlabel('Timesteps of 10 minute intervals (n)')
+    ax1.set_xlabel('Timesteps of 10 minute intervals (n)', fontsize=20)
 
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
@@ -243,8 +243,8 @@ def test(checkpoint_path, graph=True):
 
     # indoor, setpoint temperature, cost_signals,
 
-    plt.title('RL test run trajectory (6/21 ~ 6/28)')
-    plt.savefig('caps_traj.png', dpi=700, bbox_inches='tight')
+    plt.title('RL test run trajectory (6/21 ~ 6/28)', fontsize=20)
+    plt.savefig('caps_traj.png', dpi=1000, bbox_inches='tight')
     plt.show()
 
     # computing thermal comfort values
@@ -303,7 +303,37 @@ def test_max():
     print('##########################')
 
     print(episode_reward)
+    fig, ax1 = plt.subplots(figsize=(20,8))
 
+    x_vals = list(range(len(cost_signal)))
+
+    sns.lineplot(x=x_vals, y=indoor_temp, ax=ax1, color='g', label='Indoor Temperature (℃)')
+    sns.lineplot(x=x_vals, y=cooling_setpoint, ax=ax1, color='blue', label='Cooling Actuator Setpoint (℃)')
+    sns.lineplot(x=x_vals, y=outdoor_temp, ax=ax1, color='r', label='Outdoor Temperature (℃)')
+    ax1.set_ylabel('Temperature (℃)', color='blue', fontsize=20)
+    ax1.tick_params(axis='y', labelcolor='blue')
+
+    ax2 = ax1.twinx()
+
+    #sns.barplot(x=x_vals, y=cost_signal, ax=ax2, color='black', )
+    sns.lineplot(x=x_vals, y=cost_signal, ax=ax2, color='black', label='Time of Usage Price Signal (¢)')
+    ax2.set_ylabel('Cost (¢)', color='black', fontsize=20)
+    ax2.tick_params(axis='y', labelcolor='black')
+
+
+    # common x label
+    #plt.xlabel('Timesteps of 10 minute interval (n)')
+    ax1.set_xlabel('Timesteps of 10 minute intervals (n)', fontsize=20)
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(loc='upper left')
+
+    # indoor, setpoint temperature, cost_signals,
+
+    plt.title('baseline test run trajectory (6/21 ~ 6/28)', fontsize=20)
+    plt.savefig('max_traj.png', dpi=1000, bbox_inches='tight')
+    plt.show()
     # x = list(range(size))
     # fig, ax1 = plt.subplots()
     # ax1.set_xlabel('steps')
@@ -324,13 +354,13 @@ def test_max():
     # ax2.legend()
     # fig.tight_layout()
     #plt.show()
-    print('thermal_comforts', sum(thermal_comforts))
-    print('avg thermal comfort:', (sum(thermal_comforts) / (len(thermal_comforts) + 1)))
-    return episode_reward, sum(thermal_comforts), (sum(thermal_comforts) / (len(thermal_comforts) +1))
+    # print('thermal_comforts', sum(thermal_comforts))
+    # print('avg thermal comfort:', (sum(thermal_comforts) / (len(thermal_comforts) + 1)))
+    # return episode_reward, sum(thermal_comforts), (sum(thermal_comforts) / (len(thermal_comforts) +1))
 # checkpoint_path = './model/test-sac-checkpoint.pt'
 if __name__ == "__main__":
     test('checkpoint2')
-    #test_max()
+    # test_max()
 
 
     # f = open('./result/caps.txt', 'a')

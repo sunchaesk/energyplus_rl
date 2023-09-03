@@ -175,9 +175,11 @@ def total_variance():
     df['ymax'] = [max_scores[i] - scores[i] for i in range(len(scores))]
     yerr = df[['ymin', 'ymax']].T.to_numpy()
 
-    sns.barplot(x='HVAC Control Strategy', y='Total Variance $\Sigma |u_{i+1} - u_i|$', data=df, yerr=yerr, ax=ax, edgecolor='black')
+    ax = sns.barplot(x='HVAC Control Strategy', y='Total Variance $\Sigma |u_{i+1} - u_i|$', data=df, yerr=yerr, ax=ax, edgecolor='black')
+    ax.set_xlabel('HVAC Control Strategy', fontsize=20)
+    ax.set_ylabel('Total Variance $\Sigma |u_{i+1} - u_i|$', fontsize=20)
 
-    plt.title('Total Variance ($\Sigma |u_{i+1} - u_i|$) for each HVAC Control Strategy')
+    plt.title('Total Variance ($\Sigma |u_{i+1} - u_i|$) for each HVAC Control Strategy', fontsize=20)
     plt.tight_layout()
     plt.savefig("total_variance.png", dpi=300, bbox_inches='tight')
     plt.show()
@@ -197,9 +199,11 @@ def avg_pmv():
     df['ymax'] = [max_scores[i] - scores[i] for i in range(len(scores))]
     yerr = df[['ymin', 'ymax']].T.to_numpy()
 
-    sns.barplot(x='HVAC Control Strategy', y='Thermal Comfort Value (PMV)', data=df, yerr=yerr, ax=ax, edgecolor='black')
+    ax = sns.barplot(x='HVAC Control Strategy', y='Thermal Comfort Value (PMV)', data=df, yerr=yerr, ax=ax, edgecolor='black')
+    ax.set_xlabel('HVAC Control Strategy', fontsize=20)
+    ax.set_ylabel('Thermal Comfort Value (PMV)', fontsize=20)
 
-    plt.title('Average PMV value for each HVAC control strategy')
+    plt.title('Average PMV value for each HVAC control strategy', fontsize=20)
     plt.tight_layout()
     plt.savefig("avg_pmv.png", dpi=1000, bbox_inches='tight')
     plt.show()
@@ -218,11 +222,13 @@ def avg_score():
     df['ymin'] = [scores[i] - min_scores[i] for i in range(len(scores))]
     df['ymax'] = [max_scores[i] - scores[i] for i in range(len(scores))]
     yerr = df[['ymin', 'ymax']].T.to_numpy()
-    sns.barplot(x='HVAC Control Strategy', y='Cost (¢) from period 6/21 ~ 6/28', data=df, yerr=yerr, ax=ax, edgecolor='black')
+    ax = sns.barplot(x='HVAC Control Strategy', y='Cost (¢) from period 6/21 ~ 6/28', data=df, yerr=yerr, ax=ax, edgecolor='black')
+    ax.set_xlabel('HVAC Control Strategy', fontsize=20)
+    ax.set_ylabel('Cost (¢) from period 6/21 ~ 6/28', fontsize=20)
 
     #ax.bar(algorithms, scores, yerr=yerr, capsize=20, color=colour, width=0.3)
     #plt.legend()
-    plt.title('Cost of operation for each HVAC control strategy')
+    plt.title('Cost of operation for each HVAC control strategy', fontsize=20)
     plt.tight_layout()
     plt.savefig("avg_score.png", dpi=1000, bbox_inches='tight')
     plt.show()
